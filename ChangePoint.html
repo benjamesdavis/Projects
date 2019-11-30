@@ -1,0 +1,581 @@
+<html>
+
+<head>
+    <style>
+    /*CSS Styling*/
+    .line {
+    stroke-width: 1px;
+    stroke: grey;
+    fill: none
+    }
+    .mean {
+    stroke-width: 1px;
+    stroke: black;
+    }
+    .canvas {
+    display:flex;
+    flex-direction: column;
+    }
+    .subdiv {
+    display:flex;
+    flex-direction: row;
+    }
+    #topView {
+    margin-bottom: 10px;
+    }
+
+    #line-chart{
+    padding-top: 15px;
+    padding-bottom: 15px;
+    }
+
+    #histo-container {
+    margin-left: 10px;
+    }
+
+    </style>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+
+<!-- Load bootstrap -->
+<script src="http://code.jquery.com/jquery.js"></script>
+<link href="../bootstrap-4.4.1-dist/bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+<script src="../bootstrap-4.4.1-dist/bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+
+</head>
+
+
+<body>
+
+<div class="btn-group" role="group" aria-label="Basic example">
+	<button type="button" class="btn btn-info" id="Shuffle">Scramble Once</button>
+	<button type="button" class="btn btn-primary" id="shuffleBatch" >Shuffle 100 times</button>
+</div>
+  <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>
+  <div id="mainView" class = "canvas">
+      <div id="topView" class = "subdiv"></div>
+      <div id="bottomView" class = "subdiv"></div>
+  </div>
+  </div>
+</body>
+
+
+
+<script>
+
+w = 400
+h = 250
+
+let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "6px").style("background-color", "#F7F8F9")
+let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "6px").style("background-color", "#f7ffff")
+let histoSVG = d3.select("#bottomView").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "6px")
+let Button = d3.select("#Shuffle")
+let ToggleBars = d3.select("#showBars")
+let lineTrans = function(chart,duration,delay){
+  let lineLength =  function(chart){return chart.node().getTotalLength();}
+  chart.attr("stroke-dasharray",0+" "+lineLength(chart))
+      .transition()
+      .duration(duration)
+      .delay(delay)
+      .ease(d3.easeLinear)
+      .attr("stroke-dasharray",lineLength(chart)+" "+lineLength(chart))
+}
+let showBars = true
+
+dataGeneration = function(){
+
+    randomArray = function(mean,stdev){
+      let array = [];
+      for(let i=0; i<30; i++){
+        let newNumber = d3.randomNormal(mean,stdev)();
+        array.push(newNumber);
+      }
+      return array
+    }
+
+    firstPhase = randomArray(20,5)
+    secondPhase = randomArray(17,3)
+    thirdPhase = randomArray(19,4)
+
+    combinedArray = firstPhase.concat(secondPhase,thirdPhase)
+
+    dict = []
+    combinedArray.map(function(d,i){
+      dict[i] = {"key":i,"value":d}
+    })
+
+    return {combinedArray,dict}
+}
+
+getScales = function(data){
+  let xScale = d3.scaleBand()
+                 .domain(d3.range(data.length))
+                 .range([0,w])
+
+  let yScale = d3.scaleLinear()
+                .domain([d3.min(data,(d => d.value)), d3.max(data,(d => d.value))])
+                .range([h,0])
+
+  return {xScale,yScale}
+}
+
+drawLine = function(data,scales){
+  let {xScale,yScale} = scales;
+
+  svg.append("text")
+    .attr("x",0)
+    .attr("y",0)
+    .text("Random Trend")
+    .attr("fill","black")
+
+   valueline = d3.line()
+    .x(function(d,i){return xScale(i)})
+    .y(d => yScale(d))
+
+  mean = d3.mean(data,d => d)
+  meanLine = d3.line()
+    .x(function(d,i){return xScale(i)})
+    .y(yScale(mean))
+
+  let line = svg.append("g").attr("id","RL").append("path")
+          .datum(data)
+          .attr("d", valueline)
+          .attr("class","line")
+          lineTrans(line,4000,0)
+
+  let meanLineChart = svg.append("g").append("path")
+          .datum(data)
+          .attr("d", meanLine)
+          .attr("class","mean")
+          lineTrans(meanLineChart,400,5000)
+
+}
+
+drawBars = function(data,scales,lines){
+  let {xScale,yScale} = scales;
+
+  bars = svg.append("g").attr("id","devBars").selectAll("rect")
+       .data(data, function(d){return d.key})
+       .enter()
+       .append("rect")
+       .attr("x",function(d,i){return xScale(i)})
+       .attr("y", yScale(mean))
+       .attr("height",0)
+       .attr("width", xScale.bandwidth())
+       .attr("fill", function(d){
+         return d.value > mean ? "green" : "red"
+         })
+        .attr('fill-opacity', 0.4)
+
+       .transition()
+       .duration(2000)
+       .delay(function(d,i){return 6000 +  i*100})
+       .attr("height",function(d){
+          return Math.abs(yScale(mean) - yScale(d.value))
+         })
+       .attr("y",function(d){
+           if(d.value > mean){
+            return yScale(d.value)
+              } else {
+                  return yScale(mean)
+              }})
+}
+
+toggleBars = function(){
+  ToggleBars.on("click", function(){
+
+    d3.select("#devBars").selectAll("rect")
+    .attr("fill-opacity", showBars ? 0 : 0.4)
+
+    showBars =! showBars
+})}
+
+drawCUSUM = function(data){
+
+  generateRunningSum = function(data){
+      let delta = data.map(d => d - mean)
+
+      let runningSum = [];
+        delta.reduce(function(a,b,i){
+          return runningSum[i] = a+b;
+        },0)
+
+      let runningSumMin = d3.min(runningSum)
+      runningSum0 = runningSumMin >= 0 ? runningSum.map(d => d - runningSumMin) : runningSum.map(d => d + (runningSumMin*-1))
+  }
+  generateRunningSum(data)
+
+  generateRunningSum2 = function(data){
+    rsData = data.map(d => delta = {"value": d - mean})
+
+    var cumulative = 0;
+    for (var i = 0; i < data.length; i++) {
+      rsData[i].start = cumulative;
+      cumulative += rsData[i].value;
+      rsData[i].end = cumulative;
+      rsData[i].class = ( rsData[i].value >= 0 ) ? 'positive' : 'negative'
+    }
+
+    console.log(rsData)
+  }
+  generateRunningSum2(data)
+
+
+
+  origHeight = d3.max(runningSum0)
+
+  xScaleCUSUM = d3.scaleBand()
+                 .domain(d3.range(runningSum0.length))
+                 .range([0,w])
+
+  yScaleCUSUM = d3.scaleLinear()
+                .domain([0, 100])
+                .range([h,0])
+
+                yScaleCUSUM2 = d3.scaleLinear()
+                              //.domain([-40,40])
+                              .domain([d3.min(rsData,(d => Math.min(d.end,d.start))), 80])
+                              .range([h,0])
+
+                yScaleCUSUM3 = d3.scaleLinear()
+                              //.domain([0,80])
+                              .domain([0, Math.abs(d3.min(rsData,(d => Math.min(d.end,d.start)))) + 80])
+                              .range([h,0])
+
+
+    cusumSvg.selectAll("rect")
+      .data(rsData)
+      .enter()
+      .append("rect")
+      .attr("x",function(d,i){return xScaleCUSUM(i)})
+      //.attr("y", yScaleCUSUM2(40))
+      .attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
+    //  .attr("height", 20)
+      .attr("height", d => h - yScaleCUSUM3(Math.abs(d.end - d.start)))
+      .attr("width", xScaleCUSUM.bandwidth())
+      .attr("fill", function(d){
+        return d.class === "positive"? "green" : "red"
+        })
+       .attr('fill-opacity', 0.4)
+
+  // cusumSvg.append("rect").attr("id","cusumRect")
+  //   .attr("x",0)
+  //   .attr("y",  yScaleCUSUM(d3.max(runningSum0)))
+  //   .attr("width",w)
+  //   .attr("height", h - yScaleCUSUM(d3.max(runningSum0)))
+  //   .attr("fill", "grey")
+  //   .attr("opacity", 0)
+  //   .transition()
+  //   .duration(4000)
+  //   .delay(16000)
+  //   .attr("opacity",0.25)
+
+  cusumLine = d3.line()
+    .x(function(d,i){return xScaleCUSUM(i)})
+    .y(d => yScaleCUSUM(d))
+
+    let cusumChart = cusumSvg.append("g").attr("id","RS").append("path")
+        cusumChart
+        .datum(runningSum0)
+        .attr("d", cusumLine)
+        .attr("class","line")
+        lineTrans(cusumChart,9600,6000)
+
+     let cusumMaxChart = cusumSvg.append("g").attr("id","MX").append("line")
+        .style("stroke","black")
+        .attr("x1",0)
+        .attr("x2",w)
+        .attr("y1",yScaleCUSUM(d3.max(runningSum0)))
+        .attr("y2",yScaleCUSUM(d3.max(runningSum0)))
+        lineTrans(cusumMaxChart,1000,16000)
+
+              cusumSvg.append("text").attr("id","maxLabel")
+              .attr("x",-30)
+              .attr("y",d3.min(runningSum0,d => yScaleCUSUM(d)-3))
+              .attr("fill","black")
+              .text("max")
+              .transition()
+              .duration(1000)
+              .delay(16000)
+              .ease(d3.easeLinear)
+              .attr("x",w-40)
+
+     let cusumMinChart = cusumSvg.append("g").attr("id","MN").append("line")
+       .style("stroke","black")
+       .attr("x1",0)
+       .attr("x2",w)
+       .attr("y1",yScaleCUSUM(d3.min(runningSum0)))
+       .attr("y2",yScaleCUSUM(d3.min(runningSum0)))
+       lineTrans(cusumMinChart,1000,16000)
+
+             cusumSvg.append("text").attr("id","MinLabel")
+             .attr("x",-30)
+             .attr("y",d3.max(runningSum0,d => yScaleCUSUM(d)-3))
+             .attr("fill","black")
+             .text("min")
+             .transition()
+             .duration(1000)
+             .delay(16000)
+             .ease(d3.easeLinear)
+             .attr("x",w-40)
+
+     xScaleCusumHeight = d3.scaleBand()
+                    .domain(d3.range(cusumHeights.length))
+                    .range([w,w*2])
+
+     cusumSvg.append("g").attr("id","cusumHeightBars")
+
+     shuffleCount = 0
+
+}
+
+drawHisto = function(){
+  histoY = d3.scaleLinear()
+    .domain([0,100])
+    .range([h,0])
+
+  histogram =  d3.histogram()
+    .value(d => d)
+    .domain(histoY.domain())
+    .thresholds(histoY.ticks(40))
+
+  bins = histogram(cusumHeights)
+
+  histoX = d3.scaleLinear()
+    .domain([0, d3.max(bins,function(d){return d.length;})])
+    .range([0,100])
+
+  histoSVG.selectAll("rect")
+    .data(bins)
+    .enter()
+    .append("rect")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("transform", function(d){return "translate(0, "+histoY(d.x1)+" )" })
+      .attr("height",function(d){return histoY(d.x0) - histoY(d.x1); })
+      .attr("width", function(d){return histoX(d.length);})
+      .style("fill", function(d){return (d.x0 + d.x1)/2  > origHeight ? "#ccffff" : "black"})
+      .attr("opacity",function(d){return (d.x0 + d.x1)/2  > origHeight ? 0.4 : 0.2})
+
+  histoSVG.append("g").attr("id","histoMX").append("line")
+     .style("stroke","white")
+     .attr("x1",0)
+     .attr("x2",w)
+     .attr("y1",histoY(d3.max(runningSum0)))
+     .attr("y2",histoY(d3.max(runningSum0)))
+     .attr("stroke-dasharray",[5,5])
+     .style("opacity",0)
+
+}
+
+shuffleData = function(data,scales){
+  Button.on("click", function(){
+    let {xScale,yScale} = scales;
+
+    //Original Line Chart Thumbnail
+    if (shuffleCount === 0){
+
+	originLineSvg = d3.select("#topView").append("svg").attr("width", 100).attr("height",60).style("border-radius", "6px").style("background-color", "#F7F8F9").style("margin-left","10px")
+
+	      let shrunkenX = d3.scaleBand()
+			     .domain(d3.range(combinedArray.length))
+			     .range([0,100])
+
+
+	      let shrunkenY = d3.scaleLinear()
+			    .domain([d3.min(combinedArray), d3.max(combinedArray)])
+			    .range([60,0])
+
+
+	      shrunkenValueLine = d3.line()
+	       .x(function(d,i){return shrunkenX(i)})
+	       .y(d => shrunkenY(d))
+
+	      originLineSvg.append("g").attr("id","OL").append("path")
+		  .datum(combinedArray)
+		  .attr("d", shrunkenValueLine)
+		  .attr("class","line")
+		  .style("stroke-width","0.5px")
+    };
+
+    shuffleCount++
+
+    console.log(shuffleCount)
+
+    data = d3.shuffle(data)
+
+    let key = function(d) {
+      return d.key;
+    };
+
+    //Shuffle Bars
+    d3.select("#devBars").selectAll("rect")
+    .data(data,key)
+      .transition()
+      .duration(1000)
+        .attr("x", function(d,i){return xScale(i)})
+
+    //Possible to call back the previous valueline????
+    valueline = d3.line()
+     .x(function(d,i){return xScale(i)})
+     .y(d => yScale(d.value))
+
+    //Shuffle Line
+    d3.select("#RL").selectAll("path")
+      .datum(data)
+      .transition()
+      .duration(1000)
+      .attr("d", valueline)
+      .attr("class","line")
+      .attr("stroke-dasharray",[8000,8000])
+
+    //Shuffle CUSUM
+    values = data.map(d => d.value)
+    generateRunningSum(values)
+
+    let cusumLine = d3.line()
+      .x(function(d,i){return xScaleCUSUM(i)})
+      .y(d => yScaleCUSUM(d))
+
+      d3.select("#RS").selectAll("path")
+      .datum(runningSum0)
+      .transition()
+      .duration(1000)
+      .attr("d", cusumLine)
+      .attr("class","line")
+      .attr("stroke-dasharray",[8000,8000])
+
+      d3.select("#MX")
+      .selectAll("line")
+      .attr("stroke-dasharray",[5,5])
+      .attr("x2",w*2)
+
+
+    //Remove min/max labels
+      d3.select("#MinLabel").remove()
+      d3.select("#MaxLabel").remove()
+      d3.select("#MN").remove()
+
+      d3.select("#cusumRect")
+        .transition()
+        .duration(1000)
+        .attr("y",  yScaleCUSUM(d3.max(runningSum0)))
+        .attr("height", h - yScaleCUSUM(d3.max(runningSum0)))
+
+    //Update CUSUM Height Bars
+   if (shuffleCount > 1) {
+
+      xScaleCusumHeight.domain(d3.range(cusumHeights.length))
+      xScaleCusumHeight.padding(0.1)
+
+      cusumHeightBars = d3.select("#cusumHeightBars")
+          .selectAll("rect")
+          .data(cusumHeights)
+
+          cusumHeightBars.enter()
+          .append("rect")
+          .attr("x",0)
+          .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-2]))
+          .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-2]))
+          .attr("width",w)
+          .attr("opacity",d => d > origHeight ? 0.4 : 0.2)
+            .merge(cusumHeightBars)
+            .transition()
+            .duration(500)
+            .attr("x",function(d,i){return xScaleCusumHeight(i)})
+            .attr("width",xScaleCusumHeight.bandwidth())
+    }
+
+    //Update Histogram
+
+    d3.select("#histoMX")
+      .select("line")
+      .style("opacity",1)
+
+    let bins = histogram(cusumHeights)
+
+    histoX.domain([0, d3.max(bins,function(d){return d.length;})])
+
+    histoSVG.selectAll("rect")
+      .data(bins)
+      .transition()
+      .duration(1000)
+        .attr("transform", function(d){return "translate(0, "+histoY(d.x1)+" )" })
+        .attr("height",function(d){return histoY(d.x0) - histoY(d.x1); })
+        .attr("width", function(d){return histoX(d.length);})
+
+  //Push latest CUSUM heights to dataset
+   cusumHeights.push(d3.max(runningSum0))
+
+
+    })
+  }
+
+shuffleBatch = function(data){
+    d3.select("#shuffleBatch").on("click", function(){
+      for(var i=0; i<100; i++){
+        data = d3.shuffle(data)
+        let values = data.map(d => d.value)
+        generateRunningSum(values)
+        cusumHeights.push(d3.max(runningSum0))
+      }
+
+
+      xScaleCusumHeight.domain(d3.range(cusumHeights.length))
+      //
+      cusumHeightBars = d3.select("#cusumHeightBars")
+          .selectAll("rect")
+          .data(cusumHeights)
+
+      cusumHeightBars.enter()
+          .append("rect")
+          .attr("x",w)
+          .attr("y", d => yScaleCUSUM(d))
+          .attr("height", d => h- yScaleCUSUM(d))
+          //.attr("fill", d => d > origHeight ? "blue" : "black")
+          .attr("opacity",d => d > origHeight ? 0.4 : 0.2)
+          .merge(cusumHeightBars)
+          .transition()
+          .duration(500)
+          .attr("x",function(d,i){return xScaleCusumHeight(i)})
+          .attr("width",xScaleCusumHeight.bandwidth())
+
+      let bins = histogram(cusumHeights)
+
+      histoX.domain([0, d3.max(bins,function(d){return d.length;})])
+
+      histoSVG.selectAll("rect")
+        .data(bins)
+        .transition()
+        .duration(1000)
+          .attr("transform", function(d){return "translate(0, "+histoY(d.x1)+" )" })
+          .attr("height",function(d){return histoY(d.x0) - histoY(d.x1); })
+          .attr("width", function(d){return histoX(d.length);})
+        ///  .attr("opacity",function(d){return (d.x0 + d.x1)/2  > origHeight} ? 0.5 : 0.1)
+
+    })
+  }
+
+
+
+showData = function(){
+  window.combinedArray = dataGeneration().combinedArray
+  window.dict = dataGeneration().dict
+  let scales = getScales(dict);
+  drawLine(combinedArray,scales);
+  drawBars(dict,scales);
+  cusumHeights = [];
+  toggleBars();
+  drawCUSUM(combinedArray);
+  drawHisto();
+  shuffleData(dict,scales);
+  shuffleBatch(dict);
+}
+showData();
+
+
+
+
+
+</script>
+
+</html>
