@@ -20,14 +20,14 @@
     display:flex;
     flex-direction: row;
     }
-    #topView {
-    margin-bottom: 10px;
+    /*#topView {
+    padding-bottom: 10px;
     }
 
     #line-chart{
     padding-top: 15px;
     padding-bottom: 15px;
-    }
+    }*/
 
     #histo-container {
     margin-left: 10px;
@@ -38,8 +38,8 @@
 
 <!-- Load bootstrap -->
 <script src="http://code.jquery.com/jquery.js"></script>
-<link href="../bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
-<script src="../bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+<link href="./bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+<script src="./bootstrap/js/bootstrap.min.js"></script>
 
 </head>
 
@@ -49,7 +49,6 @@
 <div class="btn-group" role="group" aria-label="Basic example">
 	<button type="button" class="btn btn-info" id="Shuffle">Scramble Once</button>
 	<button type="button" class="btn btn-primary" id="shuffleBatch" >Shuffle 100 times</button>
-	<button type="button" class="btn btn-primary" id="test" >test</button>
 </div>
   <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>
   <div id="mainView" class = "canvas">
@@ -98,11 +97,42 @@ dataGeneration = function(){
     thirdPhase = randomArray(19,4)
 
     combinedArray = firstPhase.concat(secondPhase,thirdPhase)
+    
+    mean = d3.mean(combinedArray,d => d)
 
     dict = []
     combinedArray.map(function(d,i){
       dict[i] = {"key":i,"value":d}
     })
+    
+   
+   generateRunningSum = function(data){
+  	let delta = data.map(d => d - mean)
+
+  	let runningSum = [];
+  	delta.reduce(function(a,b,i){
+  	return runningSum[i] = a+b;
+  	},0)
+
+  	let runningSumMin = d3.min(runningSum)
+  	runningSum0 = runningSumMin >= 0 ? runningSum.map(d => d - runningSumMin) : runningSum.map(d => d + (runningSumMin*-1))
+  	  }
+	generateRunningSum(combinedArray)
+
+	generateRunningSum2 = function(data){
+  	rsData = data.map((d,i) => promise = {"key":i, "value": d, "delta": d - mean})
+	
+  	    var cumulative = 0;
+  	    for (var i = 0; i < data.length; i++) {
+  	      rsData[i].start = cumulative;
+  	      cumulative += rsData[i].delta;
+  	      rsData[i].end = cumulative;
+  	      rsData[i].class = ( rsData[i].delta >= 0 ) ? 'positive' : 'negative'
+  	    }
+	  }
+	generateRunningSum2(combinedArray)
+
+	origHeight = d3.max(runningSum0)
 
     return {combinedArray,dict}
 }
@@ -113,7 +143,7 @@ getScales = function(data){
                  .range([0,w])
 
   let yScale = d3.scaleLinear()
-                .domain([d3.min(data,(d => d.value)), d3.max(data,(d => d.value))])
+                .domain([d3.min(rsData,(d => d.value)), d3.max(rsData,(d => d.value))])
                 .range([h,0])
 
   return {xScale,yScale}
@@ -132,10 +162,6 @@ drawLine = function(data,scales){
     .x(function(d,i){return xScale(i)})
     .y(d => yScale(d))
 
-  mean = d3.mean(data,d => d)
-  meanLine = d3.line()
-    .x(function(d,i){return xScale(i)})
-    .y(yScale(mean))
 
   let line = svg.append("g").attr("id","RL").append("path")
           .datum(data)
@@ -143,83 +169,41 @@ drawLine = function(data,scales){
           .attr("class","line")
           lineTrans(line,4000,0)
 
-  let meanLineChart = svg.append("g").append("path")
-          .datum(data)
-          .attr("d", meanLine)
-          .attr("class","mean")
-          lineTrans(meanLineChart,400,5000)
+  let meanLine = svg.append("g").append("line")
+          .attr("x1",0)
+	  .attr("x2",0)
+	  .attr("y1",yScale(mean))	  
+	  .attr("y2",yScale(mean))
+	  .attr("stroke","black")
+	  .transition().duration(1500).delay(4000)
+	  .attr("x2",w).on("end",function(){animateWaterfall(rsData, scales)});
+	  
 
 }
 
-drawBars = function(data,scales,lines){
-  let {xScale,yScale} = scales;
+toggleBars = function(){
+  ToggleBars.on("click", function(){
+    svg.selectAll("rect")
+    .attr("fill-opacity", showBars ? 0 : 0.4)
 
-  bars = svg.append("g").attr("id","devBars").selectAll("rect")
-       .data(data, function(d){return d.key})
-       .enter()
-       .append("rect")
-       .attr("x",function(d,i){return xScale(i)})
-       .attr("y", yScale(mean))
-       .attr("height",0)
-       .attr("width", xScale.bandwidth())
-       .attr("fill", function(d){
-         return d.value > mean ? "green" : "red"
-         })
-        .attr('fill-opacity', 0.4)
+    showBars =! showBars
+})}
 
-       .transition()
-       .duration(2000)
-       .delay(function(d,i){return 6000 +  i*100})
-       .attr("height",function(d){
-          return Math.abs(yScale(mean) - yScale(d.value))
-         })
-       .attr("y",function(d){
-           if(d.value > mean){
-            return yScale(d.value)
-              } else {
-                  return yScale(mean)
-              }})
-}
 
-animateWaterfall = function(data){
-
-	generateRunningSum = function(data){
-  	let delta = data.map(d => d - mean)
-
-  	let runningSum = [];
-  	delta.reduce(function(a,b,i){
-  	return runningSum[i] = a+b;
-  	},0)
-
-  	let runningSumMin = d3.min(runningSum)
-  	runningSum0 = runningSumMin >= 0 ? runningSum.map(d => d - runningSumMin) : runningSum.map(d => d + (runningSumMin*-1))
-  	  }
-	generateRunningSum(data)
-
-	generateRunningSum2 = function(data){
-  	rsData = data.map(d => delta = {"value": d - mean})
-
-  	    var cumulative = 0;
-  	    for (var i = 0; i < data.length; i++) {
-  	      rsData[i].start = cumulative;
-  	      cumulative += rsData[i].value;
-  	      rsData[i].end = cumulative;
-  	      rsData[i].class = ( rsData[i].value >= 0 ) ? 'positive' : 'negative'
-  	    }
-	  }
-	generateRunningSum2(data)
-
-	origHeight = d3.max(runningSum0)
-
+animateWaterfall = function(data, scales){
+	let {xScale,yScale} = scales;
+	
 	rsData2 = []
 
 	xScaleCUSUM = d3.scaleBand()
 		.domain(d3.range(rsData.length))
 		.range([0,w])
 
+	rsMin = d3.min(rsData,(d => Math.min(d.end,d.start)))
+	
 	yScaleCUSUM2 = d3.scaleLinear()
 	     // .domain([d3.min(rsData2,d => d.end), d3.max(rsData2,d => d.end)])
-	     .domain([d3.min(rsData,(d => Math.min(d.end,d.start))), 80])
+	      .domain([rsMin, 80])
 	      .range([h,0])
 
 	yScaleCUSUM3 = d3.scaleLinear()
@@ -228,22 +212,31 @@ animateWaterfall = function(data){
 	      .range([h,0])
 
 	clickCount = 0
+	
+	inter = setInterval(function() {
+                updateData();
+		clickCount === rsData.length ? clearInterval(inter) : null
+        }, 150); 
 
-	d3.select("#test").on("click", function(){
+	updateData =  function(){
+		
 			rsData2[clickCount] = rsData[clickCount]
+			
 			clickCount ++
+			
+			yScaleCUSUM2.domain([d3.min(rsData2,d => Math.min(d.end, d.start)),d3.max(rsData2,d => d.end) <0 ? 0 : d3.max(rsData2,d => d.end)*1.6])
+			yScaleCUSUM3.domain([0, Math.abs(d3.min(rsData2,d => Math.min(d.end, d.start))) + (d3.max(rsData2,d => d.end) <0 ? 0 : d3.max(rsData2,d => d.end)*1.6)])
 
-			yScaleCUSUM2.domain([d3.min(rsData2,d => d.end),d3.max(rsData2,d => d.end)*1.6])
-			yScaleCUSUM3.domain([0, Math.abs(d3.min(rsData2,d => d.end)) + d3.max(rsData2,d => d.end)*1.6])
-
+			
 			waterfall = cusumSvg.selectAll("rect")
 			      .data(rsData2)
 
 			waterfallEnter = waterfall.enter()
 			      .append("rect")
 			      .attr("x",function(d,i){return xScaleCUSUM(i)})
-			      .attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
-			      .attr("height", d => h - yScaleCUSUM3(Math.abs(d.end - d.start)))
+			      .attr("y", d => yScaleCUSUM2(d.start))
+			      //.attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
+			      .attr("height", 0)
 			      .attr("width", xScaleCUSUM.bandwidth())
 			      .attr("fill", d => d.class === "positive"? "green" : "red")
 			      .attr('fill-opacity', 0.4)
@@ -251,18 +244,31 @@ animateWaterfall = function(data){
 			waterfall.merge(waterfallEnter)
 				.transition()
 				.attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
-			  .attr("height", d => h - yScaleCUSUM3(Math.abs(d.end - d.start)))
-	})
+				.attr("height", d => h - yScaleCUSUM3(Math.abs(d.end - d.start)))
+				
+			bars = svg.selectAll("rect")
+			       .data(rsData2, d =>  d.key)
+			
+			barsEnter = bars.enter()
+			       .append("rect")
+			       .attr("id",(d,i) => i)
+			       .attr("x",function(d,i){return xScale(i)})
+			       .attr("y", yScale(mean))
+			       .attr("height",0)
+			       .attr("width", xScale.bandwidth())
+			       .attr("fill", d => d.class === "positive"? "green" : "red")
+			       .attr('fill-opacity', 0.4)
+			       .transition()
+			       .attr("y", d => d.class === "positive" ? yScale(d.value) : yScale(mean))
+			       .attr("height", d => Math.abs(yScale(mean) - yScale(d.value)))
+		
+		
+		}
+		
+	
+				shuffleCount = 0
 }
 
-toggleBars = function(){
-  ToggleBars.on("click", function(){
-
-    d3.select("#devBars").selectAll("rect")
-    .attr("fill-opacity", showBars ? 0 : 0.4)
-
-    showBars =! showBars
-})}
 
 drawHisto = function(){
   histoY = d3.scaleLinear()
@@ -306,6 +312,7 @@ drawHisto = function(){
 shuffleData = function(data,scales){
   Button.on("click", function(){
     let {xScale,yScale} = scales;
+   
 
     //Original Line Chart Thumbnail
     if (shuffleCount === 0){
@@ -335,27 +342,50 @@ shuffleData = function(data,scales){
 
     shuffleCount++
 
-    console.log(shuffleCount)
+    data2 = d3.shuffle(data)
+    console.log(data)
+    generateRunningSum3 = function(data){
+  	rsData = data.map((d,i) => promise = {"key":i, "value": d.value, "delta": d.value - mean})
+	
+  	    var cumulative = 0;
+  	    for (var i = 0; i < data.length; i++) {
+  	      rsData[i].start = cumulative;
+  	      cumulative += rsData[i].delta;
+  	      rsData[i].end = cumulative;
+  	      rsData[i].class = ( rsData[i].delta >= 0 ) ? 'positive' : 'negative'
+  	    }
+	    
+	    
+	   rsMin = d3.min(rsData, d => Math.min(d.start,d.end))
+	   
+	   for (var i=0; i < rsData.length; i++){
+	    rsData[i].start = rsMin >= 0 ? rsData[i].start - rsMin : rsData[i].start + (rsMin*-1);
+	    rsData[i].end = rsMin >= 0 ? rsData[i].end - rsMin :  rsData[i].end + (rsMin*-1);
+	   }
+	    
 
-    data = d3.shuffle(data)
+	    
+	  }
+    generateRunningSum3(data)
 
-    let key = function(d) {
-      return d.key;
-    };
 
+    yScaleCUSUM2.domain([0,80 - rsMin])
+    yScaleCUSUM3.domain([0,80 - rsMin])
+
+    console.log(data)
     //Shuffle Bars
-    d3.select("#devBars").selectAll("rect")
-    .data(data,key)
+    svg.selectAll("rect")
+    .data(data2,d => d.key)
       .transition()
       .duration(1000)
         .attr("x", function(d,i){return xScale(i)})
 
-    //Possible to call back the previous valueline????
+    
+    //Shuffle Line
     valueline = d3.line()
      .x(function(d,i){return xScale(i)})
      .y(d => yScale(d.value))
-
-    //Shuffle Line
+     
     d3.select("#RL").selectAll("path")
       .datum(data)
       .transition()
@@ -363,64 +393,18 @@ shuffleData = function(data,scales){
       .attr("d", valueline)
       .attr("class","line")
       .attr("stroke-dasharray",[8000,8000])
-
-    //Shuffle CUSUM
-    values = data.map(d => d.value)
-    generateRunningSum(values)
-
-    let cusumLine = d3.line()
-      .x(function(d,i){return xScaleCUSUM(i)})
-      .y(d => yScaleCUSUM(d))
-
-      d3.select("#RS").selectAll("path")
-      .datum(runningSum0)
-      .transition()
-      .duration(1000)
-      .attr("d", cusumLine)
-      .attr("class","line")
-      .attr("stroke-dasharray",[8000,8000])
-
-      d3.select("#MX")
-      .selectAll("line")
-      .attr("stroke-dasharray",[5,5])
-      .attr("x2",w*2)
-
-
-    //Remove min/max labels
-      d3.select("#MinLabel").remove()
-      d3.select("#MaxLabel").remove()
-      d3.select("#MN").remove()
-
-      d3.select("#cusumRect")
-        .transition()
-        .duration(1000)
-        .attr("y",  yScaleCUSUM(d3.max(runningSum0)))
-        .attr("height", h - yScaleCUSUM(d3.max(runningSum0)))
-
-    //Update CUSUM Height Bars
-   if (shuffleCount > 1) {
-
-      xScaleCusumHeight.domain(d3.range(cusumHeights.length))
-      xScaleCusumHeight.padding(0.1)
-
-      cusumHeightBars = d3.select("#cusumHeightBars")
-          .selectAll("rect")
-          .data(cusumHeights)
-
-          cusumHeightBars.enter()
-          .append("rect")
-          .attr("x",0)
-          .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-2]))
-          .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-2]))
-          .attr("width",w)
-          .attr("opacity",d => d > origHeight ? 0.4 : 0.2)
-            .merge(cusumHeightBars)
-            .transition()
-            .duration(500)
-            .attr("x",function(d,i){return xScaleCusumHeight(i)})
-            .attr("width",xScaleCusumHeight.bandwidth())
-    }
-
+      
+    //Shuffle Waterfall
+    cusumSvg.selectAll("rect")
+	.data(rsData)
+	.transition()
+	.duration(1000)
+	.attr("x",function(d,i){return xScaleCUSUM(i)})
+        .attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
+        .attr("height", d => h - yScaleCUSUM3(Math.abs(d.end - d.start)))
+	.attr("fill", d => d.class === "positive"? "green" : "red")
+    
+			  
     //Update Histogram
 
     d3.select("#histoMX")
@@ -498,18 +482,14 @@ showData = function(){
   window.dict = dataGeneration().dict
   let scales = getScales(dict);
   drawLine(combinedArray,scales);
-  drawBars(dict,scales);
   cusumHeights = [];
   toggleBars();
-  animateWaterfall(combinedArray);
+  //animateWaterfall(rsData, scales);
   drawHisto();
   shuffleData(dict,scales);
   shuffleBatch(dict);
 }
 showData();
-
-
-
 
 
 </script>
