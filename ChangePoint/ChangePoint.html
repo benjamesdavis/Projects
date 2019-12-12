@@ -81,6 +81,7 @@ let lineTrans = function(chart,duration,delay){
 }
 let showBars = true
 
+
 dataGeneration = function(){
 
     randomArray = function(mean,stdev){
@@ -105,19 +106,6 @@ dataGeneration = function(){
       dict[i] = {"key":i,"value":d}
     })
     
-   
-   generateRunningSum = function(data){
-  	let delta = data.map(d => d - mean)
-
-  	let runningSum = [];
-  	delta.reduce(function(a,b,i){
-  	return runningSum[i] = a+b;
-  	},0)
-
-  	let runningSumMin = d3.min(runningSum)
-  	runningSum0 = runningSumMin >= 0 ? runningSum.map(d => d - runningSumMin) : runningSum.map(d => d + (runningSumMin*-1))
-  	  }
-	generateRunningSum(combinedArray)
 
 	generateRunningSum2 = function(data){
   	rsData = data.map((d,i) => promise = {"key":i, "value": d, "delta": d - mean})
@@ -132,21 +120,36 @@ dataGeneration = function(){
 	  }
 	generateRunningSum2(combinedArray)
 
-	origHeight = d3.max(runningSum0)
+	rsMin = d3.min(rsData, d => Math.min(d.start,d.end))
+	rsMax = d3.max(rsData, d => Math.max(d.start,d.end))
+	rsHeight = rsMax - rsMin
 
     return {combinedArray,dict}
 }
 
 getScales = function(data){
-  let xScale = d3.scaleBand()
-                 .domain(d3.range(data.length))
-                 .range([0,w])
+	let xScale = d3.scaleBand()
+		 .domain(d3.range(data.length))
+		 .range([0,w]);
 
-  let yScale = d3.scaleLinear()
-                .domain([d3.min(rsData,(d => d.value)), d3.max(rsData,(d => d.value))])
-                .range([h,0])
+	let yScale = d3.scaleLinear()
+		.domain([d3.min(rsData,(d => d.value)), d3.max(rsData,(d => d.value))])
+		.range([h,0]);
+		
+	let yScaleCUSUM2 = d3.scaleLinear()
+		.domain([rsMin,rsMax*1.6])
+		.range([h,0]);
 
-  return {xScale,yScale}
+	let yScaleCUSUM3 = d3.scaleLinear()
+		.domain([0, Math.abs(rsHeight)])
+		.range([h,0]);
+		
+	let xScaleCUSUM = d3.scaleBand()
+		.domain(d3.range(rsData.length))
+		.range([0,w]);
+		
+
+  return {xScale,yScale, xScaleCUSUM, yScaleCUSUM2, yScaleCUSUM3}
 }
 
 drawLine = function(data,scales){
@@ -176,7 +179,7 @@ drawLine = function(data,scales){
 	  .attr("y2",yScale(mean))
 	  .attr("stroke","black")
 	  .transition().duration(1500).delay(4000)
-	  .attr("x2",w).on("end",function(){animateWaterfall(rsData, scales)});
+	  .attr("x2",w).on("end",function(){animateWaterfall(rsData, scales)})
 	  
 
 }
@@ -189,27 +192,11 @@ toggleBars = function(){
     showBars =! showBars
 })}
 
-
 animateWaterfall = function(data, scales){
-	let {xScale,yScale} = scales;
+	let {xScale, yScale, yScaleCUSUM2, yScaleCUSUM3,xScaleCUSUM} = scales;
+
 	
 	rsData2 = []
-
-	xScaleCUSUM = d3.scaleBand()
-		.domain(d3.range(rsData.length))
-		.range([0,w])
-
-	rsMin = d3.min(rsData,(d => Math.min(d.end,d.start)))
-	
-	yScaleCUSUM2 = d3.scaleLinear()
-	     // .domain([d3.min(rsData2,d => d.end), d3.max(rsData2,d => d.end)])
-	      .domain([rsMin, 80])
-	      .range([h,0])
-
-	yScaleCUSUM3 = d3.scaleLinear()
-		//.domain([0, Math.abs(d3.min(rsData,(d => Math.min(d.end,d.start)))) + 80])
-	      .domain([0, Math.abs(d3.min(rsData2,d => d.end)) + d3.max(rsData2,d => d.end)])
-	      .range([h,0])
 
 	clickCount = 0
 	
@@ -219,12 +206,11 @@ animateWaterfall = function(data, scales){
         }, 150); 
 
 	updateData =  function(){
-		
 			rsData2[clickCount] = rsData[clickCount]
 			
 			clickCount ++
 			
-			yScaleCUSUM2.domain([d3.min(rsData2,d => Math.min(d.end, d.start)),d3.max(rsData2,d => d.end) <0 ? 0 : d3.max(rsData2,d => d.end)*1.6])
+			yScaleCUSUM2.domain([d3.min(rsData2,d => Math.min(d.end, d.start)),d3.max(rsData2,d => d.end) <0 ? d3.max(rsData2,d => d.end) : d3.max(rsData2,d => d.end)*1.6])
 			yScaleCUSUM3.domain([0, Math.abs(d3.min(rsData2,d => Math.min(d.end, d.start))) + (d3.max(rsData2,d => d.end) <0 ? 0 : d3.max(rsData2,d => d.end)*1.6)])
 
 			
@@ -235,7 +221,6 @@ animateWaterfall = function(data, scales){
 			      .append("rect")
 			      .attr("x",function(d,i){return xScaleCUSUM(i)})
 			      .attr("y", d => yScaleCUSUM2(d.start))
-			      //.attr("y", d => yScaleCUSUM2(Math.max(d.end, d.start)))
 			      .attr("height", 0)
 			      .attr("width", xScaleCUSUM.bandwidth())
 			      .attr("fill", d => d.class === "positive"? "green" : "red")
@@ -264,11 +249,23 @@ animateWaterfall = function(data, scales){
 		
 		
 		}
-		
+	
 	
 				shuffleCount = 0
 }
 
+cusumMax = function(scales){
+	let {yScaleCUSUM2} = scales
+	
+	cusumSvg.append("line")
+		.attr("x1",0)
+		.attr("x2",0)
+		.attr("y1",yScaleCUSUM2(rsMax))
+		.attr("y2",yScaleCUSUM2(rsMax))
+		.attr("stroke","black")
+		.transition()
+		.attr("x2",w)
+}
 
 drawHisto = function(){
   histoY = d3.scaleLinear()
@@ -295,23 +292,25 @@ drawHisto = function(){
       .attr("transform", function(d){return "translate(0, "+histoY(d.x1)+" )" })
       .attr("height",function(d){return histoY(d.x0) - histoY(d.x1); })
       .attr("width", function(d){return histoX(d.length);})
-      .style("fill", function(d){return (d.x0 + d.x1)/2  > origHeight ? "#ccffff" : "black"})
-      .attr("opacity",function(d){return (d.x0 + d.x1)/2  > origHeight ? 0.4 : 0.2})
+      .style("fill", function(d){return (d.x0 + d.x1)/2  > rsHeight ? "#ccffff" : "black"})
+      .attr("opacity",function(d){return (d.x0 + d.x1)/2  > rsHeight ? 0.4 : 0.2})
 
   histoSVG.append("g").attr("id","histoMX").append("line")
      .style("stroke","white")
      .attr("x1",0)
      .attr("x2",w)
-     .attr("y1",histoY(d3.max(runningSum0)))
-     .attr("y2",histoY(d3.max(runningSum0)))
+     .attr("y1",histoY(rsHeight))
+     .attr("y2",histoY(rsHeight))
      .attr("stroke-dasharray",[5,5])
      .style("opacity",0)
 
 }
 
+
+
 shuffleData = function(data,scales){
   Button.on("click", function(){
-    let {xScale,yScale} = scales;
+    let {xScale,yScale,yScaleCUSUM2,yScaleCUSUM3,xScaleCUSUM} = scales;
    
 
     //Original Line Chart Thumbnail
@@ -343,7 +342,7 @@ shuffleData = function(data,scales){
     shuffleCount++
 
     data2 = d3.shuffle(data)
-    console.log(data)
+
     generateRunningSum3 = function(data){
   	rsData = data.map((d,i) => promise = {"key":i, "value": d.value, "delta": d.value - mean})
 	
@@ -369,10 +368,9 @@ shuffleData = function(data,scales){
     generateRunningSum3(data)
 
 
-    yScaleCUSUM2.domain([0,80 - rsMin])
-    yScaleCUSUM3.domain([0,80 - rsMin])
+    yScaleCUSUM2.domain([0,rsHeight])
+    yScaleCUSUM3.domain([0,rsHeight])
 
-    console.log(data)
     //Shuffle Bars
     svg.selectAll("rect")
     .data(data2,d => d.key)
@@ -424,7 +422,7 @@ shuffleData = function(data,scales){
         .attr("width", function(d){return histoX(d.length);})
 
   //Push latest CUSUM heights to dataset
-   cusumHeights.push(d3.max(runningSum0))
+   cusumHeights.push(rsHeight)
 
 
     })
@@ -436,7 +434,7 @@ shuffleBatch = function(data){
         data = d3.shuffle(data)
         let values = data.map(d => d.value)
         generateRunningSum(values)
-        cusumHeights.push(d3.max(runningSum0))
+        cusumHeights.push(rsHeight)
       }
 
 
@@ -451,7 +449,7 @@ shuffleBatch = function(data){
           .attr("x",w)
           .attr("y", d => yScaleCUSUM(d))
           .attr("height", d => h- yScaleCUSUM(d))
-          .attr("opacity",d => d > origHeight ? 0.4 : 0.2)
+          .attr("opacity",d => d > rsHeight ? 0.4 : 0.2)
           .merge(cusumHeightBars)
           .transition()
           .duration(500)
@@ -469,22 +467,21 @@ shuffleBatch = function(data){
           .attr("transform", function(d){return "translate(0, "+histoY(d.x1)+" )" })
           .attr("height",function(d){return histoY(d.x0) - histoY(d.x1); })
           .attr("width", function(d){return histoX(d.length);})
-        ///  .attr("opacity",function(d){return (d.x0 + d.x1)/2  > origHeight} ? 0.5 : 0.1)
+        ///  .attr("opacity",function(d){return (d.x0 + d.x1)/2  > rsHeight} ? 0.5 : 0.1)
 
     })
   }
 
 
 
-
 showData = function(){
-  window.combinedArray = dataGeneration().combinedArray
-  window.dict = dataGeneration().dict
+  dataGeneration();
   let scales = getScales(dict);
   drawLine(combinedArray,scales);
   cusumHeights = [];
   toggleBars();
   //animateWaterfall(rsData, scales);
+  //cusumMax(scales);
   drawHisto();
   shuffleData(dict,scales);
   shuffleBatch(dict);
