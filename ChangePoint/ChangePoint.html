@@ -292,11 +292,11 @@ cusumMax = function(scales){
     .duration(4000)
     .delay(500)
     .attr("opacity",0.25)
-	
+
   xScaleCusumHeightInit = d3.scaleBand()
                       .domain(d3.range(100).reverse())
                       .range([0,w])
-					  
+
 
   xScaleCusumHeight = d3.scaleBand()
                       .domain(d3.range(cusumHeights.length))
@@ -389,7 +389,7 @@ shuffleData = function(data,scales){
           .style("opacity",1)
     };
     ////////////////////////
-   
+
 
     data2 = d3.shuffle(data)
     generateRunningSum(data)
@@ -435,36 +435,38 @@ shuffleData = function(data,scales){
     //Update CUSUM Height Bars
     if (shuffleCount > 0) {
 
+      //If fewer than 100 bars, scale to data length, else limit to 100
       xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 100 ? cusumHeightsDict.length : 100).reverse())
       xScaleCusumHeight.padding(0.1)
-	  
-	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 100 ? 0 : cusumHeightsDict.length-100 , cusumHeightsDict.length+1)
+
+      //If fewer than 100 values, take all values, else limit to last 100
+  	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 100 ? 0 : cusumHeightsDict.length-100 , cusumHeightsDict.length+1)
 
       cusumHeightBars = d3.select("#cusumHeightBars")
           .selectAll("rect")
           .data(last100, key = d => d.key)
 
-	  cusumHeightBars.enter()
-		  .append("rect")
-		  .attr("x",0)
-		  .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-1]))
-		  .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-1]))
-		  .attr("width",w)
-		  .attr("opacity",d => d > origHeight ? 0.4 : 0.2)
-			.merge(cusumHeightBars)
-			.transition()
-			.duration(500)
-			.attr("x",function(d,i){return xScaleCusumHeight(i)})
-			.attr("width",xScaleCusumHeight.bandwidth())
-			
-	  cusumHeightBars.exit()
-		 .transition()
-		 .duration(1000)
-		 .attr("transform","translate("+w+",0)")
-		 .remove()
+  	  cusumHeightBars.enter()
+  		  .append("rect")
+  		  .attr("x",0)
+  		  .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-1]))
+  		  .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-1]))
+  		  .attr("width",w)
+  		  .attr("opacity",d => d.value > origHeight ? 0.4 : 0.2)
+  			.merge(cusumHeightBars)
+  			.transition()
+  			.duration(500)
+  			.attr("x",function(d,i){return xScaleCusumHeight(i)})
+  			.attr("width",xScaleCusumHeight.bandwidth())
+
+  	  cusumHeightBars.exit()
+  		 .transition()
+  		 .duration(1000)
+  		 .attr("transform","translate("+w+",0)")
+  		 .remove()
     }
 
-	
+
     //Update histogram
     let bins = histogram(cusumHeights)
 
@@ -479,16 +481,11 @@ shuffleData = function(data,scales){
         .attr("width", function(d){return histoX(d.length);})
 
 
-  //Push latest CUSUM heights to dataset
-   
-   
-   cusumHeights.push(rsMax)
-   cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
-   console.log(cusumHeightsDict)
-   //cusumHeightsDict.push(cusumHeights.map((d,i) => promise = {"key":i, "value": d}))
-   
+  //Push latest CUSUM heights to dataset and increment the shuffleCount
    shuffleCount++
 
+   cusumHeights.push(rsMax)
+   cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
 
     })
   }
@@ -497,27 +494,29 @@ shuffleBatch = function(data, scales){
     let {yScaleCUSUM, xScaleCUSUM} = scales;
     //Generate 100 more CUSUM Height values
     d3.select("#shuffleBatch").on("click", function(){
-      for(var i=0; i<100; i++){
+
+    barsToFill = cusumHeights.length < 100 ? 100-cusumHeights.length : 100
+
+      for(var i=0; i<barsToFill; i++){
         data = d3.shuffle(data)
         generateRunningSum(data)
-		shuffleCount ++
-		cusumHeights.push(rsMax)
+    		shuffleCount ++
+    		cusumHeights.push(rsMax)
         cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
       }
-	  
-	 // shuffleCount = shuffleCount + 100
 
-	  //cusumHeightsDict = cusumHeights.map((d,i) => promise = {"key":i, "value": d})
+
+	  //Take last 100 values
 	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length - 100 ,cusumHeightsDict.length+1)
-	  
+
       xScaleCusumHeight.domain(d3.range(100).reverse()) //Re-calibrate x-axis to accommodate new values
-	  
+
 
       cusumHeightBars = d3.select("#cusumHeightBars")
           .selectAll("rect")
           .data(last100, key = d => d.key)
-		  
-		  
+
+
       cusumHeightBars.enter()
           .append("rect")
           .attr("x",function(d,i){return xScaleCusumHeightInit(i)})
@@ -531,12 +530,10 @@ shuffleBatch = function(data, scales){
           .attr("x",function(d,i){return xScaleCusumHeight(i)})
           .attr("width",xScaleCusumHeight.bandwidth())
 
-	
+
 	   cusumHeightBars.exit()
 		 .transition()
 		 .duration(1000)
-	     //.attr("x",w*2.5)
-		 //.attr("transform",function(d,i){return "translate("+w+",0)"})
 		 .attr("transform","translate("+w+",0)")
 		 .remove()
 
