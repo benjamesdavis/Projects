@@ -20,15 +20,12 @@
     display:flex;
     flex-direction: row;
     }
-    /*#topView {
-    padding-bottom: 10px;
+    .over {
+    fill: url(#gradient)
     }
-
-    #line-chart{
-    padding-top: 15px;
-    padding-bottom: 15px;
-    }*/
-
+    .under {
+    fill: #233240
+    }
     #histo-container {
     margin-left: 10px;
     }
@@ -49,6 +46,7 @@
 <div class="btn-group" role="group" aria-label="Basic example">
 	<button type="button" class="btn btn-info" id="Shuffle">Scramble Once</button>
 	<button type="button" class="btn btn-primary" id="shuffleBatch" >Shuffle 100 times</button>
+  <button type="button" onclick="clearInterval(inter)" class="btn btn-primary" id="stopLoops" >Stop</button>
 </div>
   <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>
   <div id="mainView" class = "canvas">
@@ -66,7 +64,11 @@ w = 400
 h = 250
 
 let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "6px").style("background-color", "#F7F8F9")
-let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "6px").style("background-color", "#f7ffff")
+let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "6px").style("background-color", "#2c3e50")
+var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0").attr("x2","0").attr("y1","0").attr("y2","1")
+  gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
+  gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
+  gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
 let histoSVG = d3.select("#bottomView").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "6px")
 let Button = d3.select("#Shuffle")
 let ToggleBars = d3.select("#showBars")
@@ -80,6 +82,7 @@ let lineTrans = function(chart,duration,delay){
       .attr("stroke-dasharray",lineLength(chart)+" "+lineLength(chart))
 }
 let showBars = true
+let automate = false
 
 
 dataGeneration = function(){
@@ -93,9 +96,10 @@ dataGeneration = function(){
       return array
     }
 
-    firstPhase = randomArray(20,5)
+    firstPhase = randomArray(20,4)
     secondPhase = randomArray(17,3)
-    thirdPhase = randomArray(19,4)
+    thirdPhase = randomArray(18,4)
+
 
     combinedArray = firstPhase.concat(secondPhase,thirdPhase)
 
@@ -210,16 +214,18 @@ animateWaterfall = function(data, scales){
     .attr("y", yScaleCUSUM(rsMax))
     .attr("width",w)
     .attr("height", h - yScaleCUSUM(rsMax))
-    .attr("fill", "grey")
+    .attr("fill", d3.rgb("#233240"))
     .attr("opacity", 0)
 
+
   //Cycle through updateData until all data points are rendered
-	inter = setInterval(function() {
+  let duration = 80
+	let inter = setInterval(function() {
     addDelta();
     //clickCount > 3 ?  clearInterval(inter) : null
     clickCount === rsData.length ?  clearInterval(inter) : null
     clickCount === rsData.length ? cusumMax(scales) : null
-        }, 150);
+  }, duration);
 
   waterfallGroup = cusumSvg.append("g").attr("id","waterfallBars")
 
@@ -240,11 +246,11 @@ animateWaterfall = function(data, scales){
 			      .attr("y", d => yScaleCUSUM(d.start))
 			      .attr("height", 0)
 			      .attr("width", xScaleCUSUM.bandwidth())
-			      .attr("fill", d => d.class === "positive"? d3.rgb("#94C895"): d3.rgb("#FA9595")) //#94C895 = green | #FA9595 = red
+			      .attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)") //#94C895 = green | #FA9595 = red
 			      .attr('fill-opacity', 1)
 
 			waterfall.merge(waterfallEnter)
-				.transition()
+				.transition().duration(duration)
 				.attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
 				.attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
 
@@ -260,7 +266,7 @@ animateWaterfall = function(data, scales){
 			       .attr("width", xScale.bandwidth())
 			       .attr("fill", d => d.class === "positive"? "green" : "red")
 			       .attr('fill-opacity', 0.4)
-			       .transition()
+			       .transition().duration(duration)
 			       .attr("y", d => d.class === "positive" ? yScale(d.value) : yScale(mean))
 			       .attr("height", d => Math.abs(yScale(mean) - yScale(d.value)))
 
@@ -277,12 +283,15 @@ cusumMax = function(scales){
   origHeight = rsMax
   origHeight2 = rsMax - rsMin
 
+  //Draw cusumHeightBars underneath OrigHeight line
+  cusumSvg.append("g").attr("id","cusumHeightBars")
+
 	cusumSvg.append("line")
 		.attr("x1",0)
 		.attr("x2",0)
 		.attr("y1",yScaleCUSUM(rsMax))
 		.attr("y2",yScaleCUSUM(rsMax))
-		.attr("stroke","black")
+		.attr("stroke","white")
 		.transition()
     .duration(1500)
 		.attr("x2",w)
@@ -291,7 +300,7 @@ cusumMax = function(scales){
     .transition()
     .duration(4000)
     .delay(500)
-    .attr("opacity",0.25)
+    .attr("opacity", 1)
 
   xScaleCusumHeightInit = d3.scaleBand()
                       .domain(d3.range(100).reverse())
@@ -301,9 +310,10 @@ cusumMax = function(scales){
   xScaleCusumHeight = d3.scaleBand()
                       .domain(d3.range(cusumHeights.length))
                       .range([w,w*2])
+                      .padding(0.1)
 
 
-  cusumSvg.append("g").attr("id","cusumHeightBars")
+
 }
 
 drawHisto = function(scales){
@@ -342,6 +352,7 @@ drawHisto = function(scales){
      .style("opacity",0)
 
 }
+
 
 
 
@@ -423,7 +434,7 @@ shuffleData = function(data,scales){
     	.attr("x",function(d,i){return xScaleCUSUM(i)})
       .attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
       .attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
-    	.attr("fill", d => d.class === "positive"? d3.rgb("#94C895"): d3.rgb("#FA9595"))
+    	.attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)")
 
     //Adjust CUSUM rect
     d3.select("#cusumRect")
@@ -436,11 +447,10 @@ shuffleData = function(data,scales){
     if (shuffleCount > 0) {
 
       //If fewer than 100 bars, scale to data length, else limit to 100
-      xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 100 ? cusumHeightsDict.length : 100).reverse())
-      xScaleCusumHeight.padding(0.1)
+      xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
 
       //If fewer than 100 values, take all values, else limit to last 100
-  	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 100 ? 0 : cusumHeightsDict.length-100 , cusumHeightsDict.length+1)
+  	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
 
       cusumHeightBars = d3.select("#cusumHeightBars")
           .selectAll("rect")
@@ -452,12 +462,14 @@ shuffleData = function(data,scales){
   		  .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-1]))
   		  .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-1]))
   		  .attr("width",w)
-  		  .attr("opacity",d => d.value > origHeight ? 0.4 : 0.2)
+        .attr("class", cusumHeights[shuffleCount-1] > origHeight ? "over" : "under")
+  		  .attr("opacity",0.5)
   			.merge(cusumHeightBars)
   			.transition()
   			.duration(500)
   			.attr("x",function(d,i){return xScaleCusumHeight(i)})
   			.attr("width",xScaleCusumHeight.bandwidth())
+        .attr("opacity",1)
 
   	  cusumHeightBars.exit()
   		 .transition()
@@ -490,26 +502,42 @@ shuffleData = function(data,scales){
     })
   }
 
-shuffleBatch = function(data, scales){
-    let {yScaleCUSUM, xScaleCUSUM} = scales;
-    //Generate 100 more CUSUM Height values
-    d3.select("#shuffleBatch").on("click", function(){
+toggleAutomation = function(dict, scales){
+  d3.select("#shuffleBatch").on("click", function(){
+    //automate =! automate;
+    //automateShuffle(dict,scales);
+    clearInterval()
+  })
+}
 
-    barsToFill = cusumHeights.length < 100 ? 100-cusumHeights.length : 100
+shuffleInterval = function(dict,scales){
+  d3.select("#shuffleBatch").on("click", function(){
+  automate =! automate;
+  inter = setInterval(function() {
+    automateShuffle(dict,scales);
+  }, 100);
 
-      for(var i=0; i<barsToFill; i++){
-        data = d3.shuffle(data)
-        generateRunningSum(data)
-    		shuffleCount ++
-    		cusumHeights.push(rsMax)
-        cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
-      }
+  })
+}
 
 
-	  //Take last 100 values
-	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length - 100 ,cusumHeightsDict.length+1)
+automateShuffle = function(data,scales){
 
-      xScaleCusumHeight.domain(d3.range(100).reverse()) //Re-calibrate x-axis to accommodate new values
+    let {yScaleCUSUM} = scales;
+
+    let duration = 100
+
+    data = d3.shuffle(data)
+    generateRunningSum(data)
+		shuffleCount ++
+		cusumHeights.push(rsMax)
+    cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
+
+    //If fewer than 100 values, take all values, else limit to last 100
+	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
+
+    //If fewer than 100 bars, scale to data length, else limit to 100
+    xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
 
 
       cusumHeightBars = d3.select("#cusumHeightBars")
@@ -519,22 +547,23 @@ shuffleBatch = function(data, scales){
 
       cusumHeightBars.enter()
           .append("rect")
-          .attr("x",function(d,i){return xScaleCusumHeightInit(i)})
-		  //.attr("x",w)
+		      .attr("x",w - xScaleCusumHeight.bandwidth())
           .attr("y", d => yScaleCUSUM(d.value))
           .attr("height", d => h - yScaleCUSUM(d.value))
-          .attr("opacity", d => d.value > origHeight ? 0.4 : 0.2)
+          .attr("opacity", 0)
+          .attr("class", d => d.value > origHeight ? "over" : "under")
           .merge(cusumHeightBars)
           .transition()
-          .duration(1000)
+          .duration(duration)
           .attr("x",function(d,i){return xScaleCusumHeight(i)})
           .attr("width",xScaleCusumHeight.bandwidth())
+          .attr("opacity", 1)
 
 
 	   cusumHeightBars.exit()
 		 .transition()
-		 .duration(1000)
-		 .attr("transform","translate("+w+",0)")
+		 .duration(duration)
+		 .attr("transform","translate("+xScaleCusumHeight.bandwidth()+",0)")
 		 .remove()
 
       let bins = histogram(cusumHeights)
@@ -544,14 +573,13 @@ shuffleBatch = function(data, scales){
       histoSVG.selectAll("rect")
         .data(bins)
         .transition()
-        .duration(1000)
+        .duration(duration)
           .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
           .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
           .attr("width", function(d){return histoX(d.length);})
+        //  .on("end",function(){automateShuffle(dict,scales)})
 
-
-    })
-  }
+}
 
 
 
@@ -564,7 +592,10 @@ showData = function(){
   toggleBars();
   drawHisto(scales);
   shuffleData(dict,scales);
-  shuffleBatch(dict,scales);
+  //toggleAutomation(dict,scales);
+  //automateShuffle();
+  //shuffleBatch2(dict,scales)
+  shuffleInterval(dict,scales);
 }
 showData();
 
