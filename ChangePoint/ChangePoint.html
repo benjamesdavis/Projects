@@ -20,6 +20,10 @@
     display:flex;
     flex-direction: row;
     }
+    .bottomContainer {
+    display:flex;
+    flex-direction: column;
+    }
     .over {
     fill: url(#gradient)
     }
@@ -30,6 +34,23 @@
     margin-left: 10px;
     }
 
+    h1, h2, h3, h4, h5, h6 {
+      font-family: "Bitter";
+      fill: #2c3e50;
+    }
+    .lab-text {
+      fill: #78909c;
+      font-size: 13px;
+      font-family: "Bitter"
+    }
+    .num-text {
+      fill: #78909c;
+      font-family: "Bitter"
+    }
+    #lineChart {
+      background: #F7F8F9;
+      border-radius: 10px;
+    }
     </style>
 <script src="https://d3js.org/d3.v4.min.js"></script>
 
@@ -49,9 +70,13 @@
   <button type="button" onclick="clearInterval(inter)" class="btn btn-primary" id="stopLoops" >Stop</button>
 </div>
   <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>
+  <div class="button"><button id="resetOrig" type="button">Reset Orig</button></div>
   <div id="mainView" class = "canvas">
       <div id="topView" class = "subdiv"></div>
-      <div id="bottomView" class = "subdiv"></div>
+      <div class = "bottomContainer">
+        <h5>Simulation statistics</h5>
+        <div id="bottomView" class = "subdiv"></div>
+      </div>
   </div>
   </div>
 </body>
@@ -63,13 +88,23 @@
 w = 400
 h = 250
 
-let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "6px").style("background-color", "#F7F8F9")
-let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "6px").style("background-color", "#2c3e50")
+//let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "10px").style("background-color", "#F7F8F9")
+let lineMargin = {top: 30, right: 0, bottom: 30, left: 0};
+let lineWidth = w - lineMargin.left - lineMargin.right,
+    lineHeight = h - lineMargin.top - lineMargin.bottom;
+
+let svg = d3.select("#topView").append("svg").attr("id","lineChart")
+  .attr("width", w)
+  .attr("height", h)
+  .append("g")
+    .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
+
+let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "10px").style("background-color", "#2c3e50")
 var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0").attr("x2","0").attr("y1","0").attr("y2","1")
   gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
   gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
   gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
-let histoSVG = d3.select("#bottomView").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "6px")
+let histoSVG = d3.select("#bottomView").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "10px")
 let Button = d3.select("#Shuffle")
 let ToggleBars = d3.select("#showBars")
 let lineTrans = function(chart,duration,delay){
@@ -85,20 +120,22 @@ let showBars = true
 let automate = false
 
 
+
+
 dataGeneration = function(){
 
-    randomArray = function(mean,stdev){
+    randomArray = function(size,mean,stdev){
       let array = [];
-      for(let i=0; i<30; i++){
+      for(let i=0; i<size; i++){
         let newNumber = d3.randomNormal(mean,stdev)();
         array.push(newNumber);
       }
       return array
     }
 
-    firstPhase = randomArray(20,4)
-    secondPhase = randomArray(17,3)
-    thirdPhase = randomArray(18,4)
+    firstPhase = randomArray(40,20,4)
+    secondPhase = randomArray(30,17,3)
+    thirdPhase = randomArray(15,18,4)
 
 
     combinedArray = firstPhase.concat(secondPhase,thirdPhase)
@@ -109,7 +146,6 @@ dataGeneration = function(){
     combinedArray.map(function(d,i){
       dict[i] = {"key":i,"value":d}
     })
-
 
   generateRunningSum = function(data){
   	rsData = data.map((d,i) => promise = {"key":i, "value": d.value, "delta": d.value - mean})
@@ -132,7 +168,7 @@ dataGeneration = function(){
 	  }
   generateRunningSum(dict)
 
-  return {combinedArray,dict}
+  return {combinedArray,dict  }
 }
 
 getScales = function(data){
@@ -142,7 +178,7 @@ getScales = function(data){
 
 	let yScale = d3.scaleLinear()
 		.domain([d3.min(rsData,(d => d.value)), d3.max(rsData,(d => d.value))])
-		.range([h,0]);
+		.range([lineHeight,0]);
 
 	let yScaleCUSUM = d3.scaleLinear()
 		.domain([0,rsMax*1.6])
@@ -162,12 +198,6 @@ getScales = function(data){
 
 drawLine = function(data,scales){
   let {xScale,yScale} = scales;
-
-  svg.append("text")
-    .attr("x",0)
-    .attr("y",0)
-    .text("Random Trend")
-    .attr("fill","black")
 
    valueline = d3.line()
     .x(function(d,i){return xScale(i)})
@@ -330,7 +360,8 @@ drawHisto = function(scales){
     .domain([0, d3.max(bins,function(d){return d.length;})])
     .range([0,100])
 
-  histoSVG.selectAll("rect")
+  histoSVG.append("g")
+    .selectAll("rect")
     .data(bins)
     .enter()
     .append("rect")
@@ -345,11 +376,44 @@ drawHisto = function(scales){
   histoSVG.append("g").attr("id","histoMX").append("line")
      .style("stroke","white")
      .attr("x1",0)
-     .attr("x2",w)
+     .attr("x2",100)
      .attr("y1",yScaleCUSUM(rsMax))
      .attr("y2",yScaleCUSUM(rsMax))
      .attr("stroke-dasharray",[5,5])
      .style("opacity",0)
+
+ simCount = histoSVG.append("g").attr("id","simCount")
+  .attr("transform", "translate(50,"+(h-(h/20))+")")
+
+ simCountNum = simCount.append("text").attr("class","num-text")
+   .text(0)
+   .attr("text-anchor","middle")
+   .attr("dy","-1em")
+   .attr("dx","-0.3em");
+
+ simCountLab = simCount.append("text").attr("class","lab-text")
+  .text("Simulations")
+  .attr("text-anchor","middle")
+  .attr("dx","-0.3em");
+
+
+ hitRate= histoSVG.append("g").attr("id","hitRate")
+  .attr("transform", "translate(50,"+h/15+")")
+
+ hitRateNum = hitRate.append("text").attr("class","num-text")
+   .text("0.0%")
+   .style("font-size","20px")
+   .attr("text-anchor","middle")
+   .attr("dy","1em")
+   .attr("dx","-0.3em");
+
+ hitRateLab = hitRate.append("text").attr("class","lab-text")
+  .text("Hit Rate")
+  .attr("text-anchor","middle")
+  .attr("dx","-0.3em");
+
+
+
 
 }
 
@@ -363,32 +427,32 @@ shuffleData = function(data,scales){
 
     //First Shuffle: Original Line Chart Thumbnail + Extend Max Line
     if (shuffleCount === 0){
-
-	     originLineSvg = d3.select("#topView")
-          .append("svg")
-          .attr("width", 100)
-          .attr("height",60)
-          .style("border-radius", "6px")
-          .style("background-color", "#F7F8F9")
-          .style("margin-left","10px")
-
-	      let shrunkenX = d3.scaleBand()
-			     .domain(d3.range(combinedArray.length))
-			     .range([0,100])
-
-	      let shrunkenY = d3.scaleLinear()
-			    .domain([d3.min(combinedArray), d3.max(combinedArray)])
-			    .range([60,0])
-
-	      shrunkenValueLine = d3.line()
-	       .x(function(d,i){return shrunkenX(i)})
-	       .y(d => shrunkenY(d))
-
-  	    originLineSvg.append("g").attr("id","OL").append("path")
-  		  .datum(combinedArray)
-  		  .attr("d", shrunkenValueLine)
-  		  .attr("class","line")
-  		  .style("stroke-width","0.5px")
+       //
+	     // originLineSvg = d3.select("#topView")
+       //    .append("svg")
+       //    .attr("width", 100)
+       //    .attr("height",60)
+       //    .style("border-radius", "6px")
+       //    .style("background-color", "#F7F8F9")
+       //    .style("margin-left","10px")
+       //
+	     //  let shrunkenX = d3.scaleBand()
+			 //     .domain(d3.range(combinedArray.length))
+			 //     .range([0,100])
+       //
+	     //  let shrunkenY = d3.scaleLinear()
+			 //    .domain([d3.min(combinedArray), d3.max(combinedArray)])
+			 //    .range([60,0])
+       //
+	     //  shrunkenValueLine = d3.line()
+	     //   .x(function(d,i){return shrunkenX(i)})
+	     //   .y(d => shrunkenY(d))
+       //
+  	   //  originLineSvg.append("g").attr("id","OL").append("path")
+  		 //  .datum(combinedArray)
+  		 //  .attr("d", shrunkenValueLine)
+  		 //  .attr("class","line")
+  		 //  .style("stroke-width","0.5px")
 
         //Extend Max Line
         cusumSvg.select("line")
@@ -403,7 +467,7 @@ shuffleData = function(data,scales){
 
 
     data2 = d3.shuffle(data)
-    generateRunningSum(data)
+    generateRunningSum(data2)
 
 
     //Shuffle Line
@@ -476,6 +540,10 @@ shuffleData = function(data,scales){
   		 .duration(1000)
   		 .attr("transform","translate("+w+",0)")
   		 .remove()
+
+       hitRate = d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100
+       hitRate = hitRate.toFixed(1)+"%"
+       hitRateNum.text(hitRate)
     }
 
 
@@ -491,6 +559,9 @@ shuffleData = function(data,scales){
         .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
         .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
         .attr("width", function(d){return histoX(d.length);})
+
+    simCountNum.text(shuffleCount)
+
 
 
   //Push latest CUSUM heights to dataset and increment the shuffleCount
@@ -527,8 +598,8 @@ automateShuffle = function(data,scales){
 
     let duration = 100
 
-    data = d3.shuffle(data)
-    generateRunningSum(data)
+    data2 = d3.shuffle(data)
+    generateRunningSum(data2)
 		shuffleCount ++
 		cusumHeights.push(rsMax)
     cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
@@ -579,8 +650,57 @@ automateShuffle = function(data,scales){
           .attr("width", function(d){return histoX(d.length);})
         //  .on("end",function(){automateShuffle(dict,scales)})
 
+      simCountNum.text(shuffleCount)
+      hitRate = d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100
+      hitRate = hitRate.toFixed(1)+"%"
+      hitRateNum.text(hitRate)
+
 }
 
+showOrigTrend = function(data,scales){
+  let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
+
+  d3.select("#resetOrig").on("click",function(){
+    data = dict.sort(function(a,b){return a.key - b.key})
+    generateRunningSum(data)
+
+    //Shuffle Line
+    valueline = d3.line()
+     .x(function(d,i){return xScale(i)})
+     .y(d => yScale(d.value))
+
+     d3.select("#RL").selectAll("path")
+      .datum(data)
+      .transition()
+      .duration(1000)
+      .attr("d", valueline)
+      .attr("class","line")
+
+    //Shuffle Bars
+    svg.selectAll("rect")
+    .data(data,d => d.key)
+      .transition()
+      .duration(1000)
+        .attr("x", function(d,i){return xScale(i)})
+
+    //Shuffle Waterfall
+    d3.select("#waterfallBars").selectAll("rect")
+      .data(rsData)
+      .transition()
+      .duration(1000)
+      .attr("x",function(d,i){return xScaleCUSUM(i)})
+      .attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
+      .attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
+      .attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)")
+
+    //Adjust CUSUM rect
+    d3.select("#cusumRect")
+      .transition()
+      .duration(1000)
+      .attr("y",  yScaleCUSUM(rsMax))
+      .attr("height", h - yScaleCUSUM(rsMax))
+  })
+}
 
 
 showData = function(){
@@ -592,10 +712,8 @@ showData = function(){
   toggleBars();
   drawHisto(scales);
   shuffleData(dict,scales);
-  //toggleAutomation(dict,scales);
-  //automateShuffle();
-  //shuffleBatch2(dict,scales)
   shuffleInterval(dict,scales);
+  showOrigTrend(dict,scales)
 }
 showData();
 
