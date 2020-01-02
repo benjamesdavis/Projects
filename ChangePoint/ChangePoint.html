@@ -52,7 +52,7 @@
       border-radius: 10px;
     }
     </style>
-<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3.v5.min.js"></script>
 
 <!-- Load bootstrap -->
 <script src="http://code.jquery.com/jquery.js"></script>
@@ -89,7 +89,7 @@ w = 400
 h = 250
 
 //let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "10px").style("background-color", "#F7F8F9")
-let lineMargin = {top: 30, right: 0, bottom: 30, left: 0};
+let lineMargin = {top: 50, right: 0, bottom: 30, left: 0};
 let lineWidth = w - lineMargin.left - lineMargin.right,
     lineHeight = h - lineMargin.top - lineMargin.bottom;
 
@@ -98,6 +98,13 @@ let svg = d3.select("#topView").append("svg").attr("id","lineChart")
   .attr("height", h)
   .append("g")
     .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
+let AnnSvg = d3.select("#topView")
+  .append("svg")
+  .attr("id","AnnSvg")
+  .attr("width",w)
+  .append("g").attr("transform","translate(10,0)")
+
+
 
 let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "10px").style("background-color", "#2c3e50")
 var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0").attr("x2","0").attr("y1","0").attr("y2","1")
@@ -210,14 +217,61 @@ drawLine = function(data,scales){
           .attr("class","line")
           lineTrans(line,4000,0)
 
+  AnnSvg
+    .append("text").attr("id","Ann1")
+    .attr("text-anchor","left")
+    .text("1. take a time series")
+    .attr("opacity",1)
+    .attr("dy","1em")
+
   let meanLine = svg.append("g").append("line")
-          .attr("x1",0)
+    .attr("x1",0)
 	  .attr("x2",0)
 	  .attr("y1",yScale(mean))
 	  .attr("y2",yScale(mean))
 	  .attr("stroke","black")
 	  .transition().duration(1500).delay(4000)
-	  .attr("x2",w).on("end",function(){animateWaterfall(rsData, scales)})
+    .attr("x2",w).on("end",
+      function(){
+        AnnSvg.append("text").attr("id","deltaAnn")
+          .text("2. calculate differences from the trend mean")
+          .attr("opacity",0)
+          .attr("dy","2.5em")
+          .transition().duration(500).attr("opacity",1);
+        setTimeout(function(){drawBars(dict,scales);}, 500);
+        d3.select("#Ann1").transition().attr("opacity",0.3)
+      }
+    )
+
+}
+
+drawBars = function(data,scales){
+  let {xScale,yScale} = scales;
+
+
+
+  bars = svg.append("g").attr("id","devBars").selectAll("rect")
+       .data(data, function(d){return d.key})
+       .enter()
+       .append("rect")
+       .attr("x",function(d,i){return xScale(i)})
+       .attr("y", yScale(mean))
+       .attr("height",0)
+       .attr("width", xScale.bandwidth())
+       //.attr("fill", "grey")
+       .attr("fill", d =>  d.value > mean ? "green" : "red")
+       .attr('fill-opacity', 0.4)
+
+       bars.transition()
+       .duration(2000)
+       //.delay(function(d,i){return i*50})
+       .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
+       .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
+       .end().then(() => {
+         setTimeout(function(){animateWaterfall(rsData, scales);}, 2000);
+         setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
+         d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
+       });
 
 
 }
@@ -234,6 +288,15 @@ toggleBars = function(){
 animateWaterfall = function(data, scales){
 	let {xScale, yScale, yScaleCUSUM, yScaleCSMheight,xScaleCUSUM} = scales;
 
+  d3.select("#Ann1").transition().attr("opacity",0.3)
+
+  AnnSvg
+    .append("text").attr("id","rsAnn")
+    .attr("text-anchor","left")
+    .text("3. plot the running sum of deltas")
+    .attr("opacity",1)
+    .attr("dy","4em")
+
 	rsData2 = []
 
 	clickCount = 0
@@ -249,7 +312,7 @@ animateWaterfall = function(data, scales){
 
 
   //Cycle through updateData until all data points are rendered
-  let duration = 80
+  let duration = 120
 	let inter = setInterval(function() {
     addDelta();
     //clickCount > 3 ?  clearInterval(inter) : null
@@ -284,21 +347,26 @@ animateWaterfall = function(data, scales){
 				.attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
 				.attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
 
-			bars = svg.selectAll("rect")
-			       .data(rsData2, d =>  d.key)
+      bars = svg.selectAll("rect")
+        .attr("fill",(d,i) => i = rsData2[i] ? (d.value > mean ? "green" : "red") : "rgb(184,184,184)")
+        //.attr("fill", d =>  d.value > mean ? "green" : "red")
 
-			barsEnter = bars.enter()
-			       .append("rect")
-			       .attr("id",(d,i) => i)
-			       .attr("x",function(d,i){return xScale(i)})
-			       .attr("y", yScale(mean))
-			       .attr("height",0)
-			       .attr("width", xScale.bandwidth())
-			       .attr("fill", d => d.class === "positive"? "green" : "red")
-			       .attr('fill-opacity', 0.4)
-			       .transition().duration(duration)
-			       .attr("y", d => d.class === "positive" ? yScale(d.value) : yScale(mean))
-			       .attr("height", d => Math.abs(yScale(mean) - yScale(d.value)))
+
+			// bars = svg.selectAll("rect")
+			//        .data(rsData2, d =>  d.key)
+      //
+			// barsEnter = bars.enter()
+			//        .append("rect")
+			//        .attr("id",(d,i) => i)
+			//        .attr("x",function(d,i){return xScale(i)})
+			//        .attr("y", yScale(mean))
+			//        .attr("height",0)
+			//        .attr("width", xScale.bandwidth())
+			//        .attr("fill", d => d.class === "positive"? "green" : "red")
+			//        .attr('fill-opacity', 0.4)
+			//        .transition().duration(duration)
+			//        .attr("y", d => d.class === "positive" ? yScale(d.value) : yScale(mean))
+			//        .attr("height", d => Math.abs(yScale(mean) - yScale(d.value)))
 
 		}
 
@@ -358,7 +426,7 @@ drawHisto = function(scales){
 
   histoX = d3.scaleLinear()
     .domain([0, d3.max(bins,function(d){return d.length;})])
-    .range([0,100])
+    .range([0,85])
 
   histoSVG.append("g")
     .selectAll("rect")
@@ -369,7 +437,7 @@ drawHisto = function(scales){
       .attr("y",0)
       .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
       .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
-      .attr("width", function(d){return histoX(d.length);})
+      .attr("width", 0)
       .style("fill", function(d){return (d.x0 + d.x1)/2  > rsMax ? "#ccffff" : "black"})
       .attr("opacity",function(d){return (d.x0 + d.x1)/2  > rsMax ? 0.4 : 0.2})
 
@@ -478,7 +546,7 @@ shuffleData = function(data,scales){
      d3.select("#RL").selectAll("path")
       .datum(data)
       .transition()
-      .duration(1000)
+      .duration(800)
       .attr("d", valueline)
       .attr("class","line")
       .attr("stroke-dasharray",[8000,8000])
@@ -487,7 +555,7 @@ shuffleData = function(data,scales){
     svg.selectAll("rect")
     .data(data2,d => d.key)
       .transition()
-      .duration(1000)
+      .duration(800)
         .attr("x", function(d,i){return xScale(i)})
 
     //Shuffle Waterfall
@@ -544,24 +612,22 @@ shuffleData = function(data,scales){
        hitRate = d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100
        hitRate = hitRate.toFixed(1)+"%"
        hitRateNum.text(hitRate)
+
+       //Update histogram
+       let bins = histogram(cusumHeights)
+
+       histoX.domain([0, d3.max(bins,function(d){return d.length;})])
+
+       histoSVG.selectAll("rect")
+         .data(bins)
+         .transition()
+         .duration(1000)
+           .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
+           .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
+           .attr("width", function(d){return histoX(d.length);})
+
+      simCountNum.text(shuffleCount)
     }
-
-
-    //Update histogram
-    let bins = histogram(cusumHeights)
-
-    histoX.domain([0, d3.max(bins,function(d){return d.length;})])
-
-    histoSVG.selectAll("rect")
-      .data(bins)
-      .transition()
-      .duration(1000)
-        .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
-        .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
-        .attr("width", function(d){return histoX(d.length);})
-
-    simCountNum.text(shuffleCount)
-
 
 
   //Push latest CUSUM heights to dataset and increment the shuffleCount
