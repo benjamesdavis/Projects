@@ -2,62 +2,106 @@
 
 <head>
     <style>
-    /*CSS Styling*/
-    .line {
-    stroke-width: 1px;
-    stroke: grey;
-    fill: none
-    }
-    .mean {
-    stroke-width: 1px;
-    stroke: black;
-    }
-    .canvas {
-    display:flex;
-    flex-direction: column;
-    }
-    .subdiv {
-    display:flex;
-    flex-direction: row;
-    }
-    .bottomContainer {
-    display:flex;
-    flex-direction: column;
-    }
-    .over {
-    fill: url(#gradient)
-    }
-    .under {
-    fill: #233240
-    }
-    #histo-container {
-    margin-left: 10px;
-    }
+      /*CSS Styling*/
+      .line {
+      stroke-width: 1px;
+      stroke: grey;
+      fill: none
+      }
+      .mean {
+      stroke-width: 1px;
+      stroke: black;
+      }
+      .canvas {
+      display:flex;
+      flex-direction: column;
+      }
+      .subdiv {
+      display:flex;
+      flex-direction: row;
+      }
+      .bottomContainer {
+      display:flex;
+      flex-direction: column;
+      }
+      .over {
+      fill: url(#gradient)
+      }
+      .under {
+      fill: #233240
+      }
+      #histo-container {
+      margin-left: 10px;
+      }
 
-    h1, h2, h3, h4, h5, h6 {
-      font-family: "Bitter";
-      fill: #2c3e50;
-    }
-    .lab-text {
-      fill: #78909c;
-      font-size: 13px;
-      font-family: "Bitter"
-    }
-    .num-text {
-      fill: #78909c;
-      font-family: "Bitter"
-    }
-    #lineChart {
-      background: #F7F8F9;
-      border-radius: 10px;
-    }
+      h1, h2, h3, h4, h5, h6 {
+        font-family: "Bitter";
+        fill: #2c3e50;
+      }
+      .lab-text {
+        fill: #78909c;
+        font-size: 13px;
+        font-family: "Bitter"
+      }
+      .num-text {
+        fill: #78909c;
+        font-family: "Bitter"
+      }
+      #lineChartCont {
+        background: #F7F8F9;
+        border: 1px solid #d9d9db;
+        border-radius: 10px;
+      }
+      .annotation-note-label {
+        fill: #78909c;
+        font-size: 13px;
+        font-family: "Bitter"
+      }
+      .subject,.note-line,.connector {
+        stroke: white;
+        stroke-width: 1.2px;
+      }
+      #mainView {
+        padding-top: 20px;
+        padding-left: 20px;
+      }
+      #topView {
+        padding-bottom: 20px;
+      }
+      #title {
+        color: #2c3e50;
+        font-size: 23px;
+        font-family: "Bitter";
+        padding-bottom: 10px;
+      }
+      #annCont {
+        padding-left: 20px;
+        /*background: no-repeat left/380px 250px url('Paper.PNG');*/
+      }
+      #AnnSvg {
+        background: no-repeat left/450px 100% url('Paper.PNG');
+        font-family: "Caveat"
+      }
+      #histoLab {
+        font-family: "Bitter";
+        font-size: 16px;
+        color: #b5b5b5;
+        transform: rotate(90deg) translate(1.2em,-1.6em);
+        transform-origin: 0 0
+      }
+
     </style>
-<script src="https://d3js.org/d3.v5.min.js"></script>
 
-<!-- Load bootstrap -->
-<script src="http://code.jquery.com/jquery.js"></script>
-<link href="../bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
-<script src="../bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+  <!-- Load d3 -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Load bootstrap -->
+  <script src="http://code.jquery.com/jquery.js"></script>
+  <link href="../bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <script src="../bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+
+  <!-- Load d3-annotation -->
+  <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
 
 </head>
 
@@ -66,16 +110,25 @@
 
 <div class="btn-group" role="group" aria-label="Basic example">
 	<button type="button" class="btn btn-info" id="Shuffle">Scramble Once</button>
-	<button type="button" class="btn btn-primary" id="shuffleBatch" >Shuffle 100 times</button>
-  <button type="button" onclick="clearInterval(inter)" class="btn btn-primary" id="stopLoops" >Stop</button>
+	<button type="button" class="btn btn-primary" id="shuffleBatch" >start</button>
 </div>
-  <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>
   <div class="button"><button id="resetOrig" type="button">Reset Orig</button></div>
   <div id="mainView" class = "canvas">
-      <div id="topView" class = "subdiv"></div>
+      <div id="title">ChangePoint Analysis</div>
+      <div id="topView" class = "subdiv">
+        <div id="lineChartCont" class = "canvas"></div>
+        <div id="annCont"></div>
+      <!--  <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>-->
+      </div>
       <div class = "bottomContainer">
         <h5>Simulation statistics</h5>
-        <div id="bottomView" class = "subdiv"></div>
+        <div id="bottomView" class = "subdiv">
+          <div id="cusumView"></div>
+          <div id="histoView" class = "subdiv">
+            <div id="histoChart"></div>
+            <div id="histoLab"></div>
+          </div>
+        </div>
       </div>
   </div>
   </div>
@@ -93,25 +146,27 @@ let lineMargin = {top: 50, right: 0, bottom: 30, left: 0};
 let lineWidth = w - lineMargin.left - lineMargin.right,
     lineHeight = h - lineMargin.top - lineMargin.bottom;
 
-let svg = d3.select("#topView").append("svg").attr("id","lineChart")
+let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
   .attr("width", w)
   .attr("height", h)
   .append("g")
     .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
-let AnnSvg = d3.select("#topView")
+let AnnSvg = d3.select("#annCont")
   .append("svg")
   .attr("id","AnnSvg")
-  .attr("width",w)
-  .append("g").attr("transform","translate(10,0)")
+  .attr("width",450)
+  .attr("height",h)
+  .append("g").attr("transform","translate(45,32)")
 
 
 
-let cusumSvg = d3.select("#bottomView").append("svg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "10px").style("background-color", "#2c3e50")
+let cusumSvg = d3.select("#cusumView").append("svg").attr("id","cusumSvg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "2px").style("border-radius", "10px").style("background-color", "#2c3e50")
 var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0").attr("x2","0").attr("y1","0").attr("y2","1")
   gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
   gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
   gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
-let histoSVG = d3.select("#bottomView").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "10px")
+let histoSVG = d3.select("#histoChart").append("svg").attr("id","histo-container").attr("width",100).attr("height",h).style("border-style", "solid").style("border-width", "2px").style("background-color", "#2c3e50").style("border-radius", "10px")
+d3.select("#histoLab").text("Dist. of simulation scores")
 let Button = d3.select("#Shuffle")
 let ToggleBars = d3.select("#showBars")
 let lineTrans = function(chart,duration,delay){
@@ -125,7 +180,6 @@ let lineTrans = function(chart,duration,delay){
 }
 let showBars = true
 let automate = false
-
 
 
 
@@ -248,8 +302,6 @@ drawLine = function(data,scales){
 drawBars = function(data,scales){
   let {xScale,yScale} = scales;
 
-
-
   bars = svg.append("g").attr("id","devBars").selectAll("rect")
        .data(data, function(d){return d.key})
        .enter()
@@ -273,11 +325,12 @@ drawBars = function(data,scales){
          d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
        });
 
-
+  d3.select("#lineChartCont").append("button").attr("id","toggleBars").text("Toggle")
+  toggleBars();
 }
 
 toggleBars = function(){
-  ToggleBars.on("click", function(){
+  d3.select("#toggleBars").on("click", function(){
     svg.selectAll("rect")
     .attr("fill-opacity", showBars ? 0 : 0.4)
 
@@ -310,25 +363,71 @@ animateWaterfall = function(data, scales){
     .attr("fill", d3.rgb("#233240"))
     .attr("opacity", 0)
 
+  //Annotation Callout Value
+  cusumPeak = rsData.slice().sort((a, b) => d3.descending(a.end, b.end))
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
 
   //Cycle through updateData until all data points are rendered
   let duration = 120
-	let inter = setInterval(function() {
-    addDelta();
-    //clickCount > 3 ?  clearInterval(inter) : null
-    clickCount === rsData.length ?  clearInterval(inter) : null
-    clickCount === rsData.length ? cusumMax(scales) : null
-  }, duration);
+
+  function pollDOM(){
+    //if max point, draw callout, and then remove
+    if (clickCount === cusumPeak[0].key){
+      addDelta();
+      setTimeout(Callout,100);
+      setTimeout(function(){
+        pollDOM();
+        d3.select("#callout").remove();
+      },4000);
+    //if final point, trigger max line
+    } else if (clickCount === rsData.length) {
+      cusumMax(scales);
+    //if another other point, cycle as normal
+    } else {
+      addDelta();
+      setTimeout(pollDOM,duration);
+    }
+  }
+  pollDOM();
 
   waterfallGroup = cusumSvg.append("g").attr("id","waterfallBars")
 
-	addDelta =  function(){
-			rsData2[clickCount] = rsData[clickCount]
+  function Callout(){
+    //if (clickCount === cusumPeak[0].key) {
+        highestValue = yScaleCUSUM(cusumPeak[0].end)
+        highestIndex = xScaleCUSUM(cusumPeak[0].key)
 
-			clickCount ++
+        //Features of the annotation
+        const annotations = [{
+            note: {label: "If pos or neg deltas are clustered together, the curve will gain momentum, and grow taller", wrap:250},
+            x: highestIndex, y: highestValue,
+            dy: 50, dx: 50,
+            subject: {radius: 35}
+        }]
+
+        //Add annotation to the Chart
+        const makeAnnotations = d3.annotation()
+          //.editMode(true)
+          .type(d3.annotationCalloutCircle)
+          .annotations(annotations)
+        d3.select("#cusumSvg")
+          .append("g").attr("id","callout")
+          .call(makeAnnotations);
+        //d3.select(".annotation-note-label").attr("width",600)
+      };
+
+  function addDelta(){
+			rsData2[clickCount] = rsData[clickCount]
 
       yScaleCUSUM.domain([d3.min(rsData2,d => Math.min(d.end, d.start)) , d3.max(rsData2,d => Math.max(d.end, d.start)) * 1.6])
       yScaleCSMheight.domain([0 , (d3.max(rsData2,d => Math.max(d.end, d.start))*1.6) - d3.min(rsData2,d => Math.min(d.end, d.start))])
+
+      clickCount ++
+
 
 			waterfall = d3.select("#waterfallBars").selectAll("rect")
 			      .data(rsData2)
@@ -349,31 +448,15 @@ animateWaterfall = function(data, scales){
 
       bars = svg.selectAll("rect")
         .attr("fill",(d,i) => i = rsData2[i] ? (d.value > mean ? "green" : "red") : "rgb(184,184,184)")
-        //.attr("fill", d =>  d.value > mean ? "green" : "red")
+
+  		}
 
 
-			// bars = svg.selectAll("rect")
-			//        .data(rsData2, d =>  d.key)
-      //
-			// barsEnter = bars.enter()
-			//        .append("rect")
-			//        .attr("id",(d,i) => i)
-			//        .attr("x",function(d,i){return xScale(i)})
-			//        .attr("y", yScale(mean))
-			//        .attr("height",0)
-			//        .attr("width", xScale.bandwidth())
-			//        .attr("fill", d => d.class === "positive"? "green" : "red")
-			//        .attr('fill-opacity', 0.4)
-			//        .transition().duration(duration)
-			//        .attr("y", d => d.class === "positive" ? yScale(d.value) : yScale(mean))
-			//        .attr("height", d => Math.abs(yScale(mean) - yScale(d.value)))
+			shuffleCount = 0
 
-		}
-
-
-				shuffleCount = 0
 
 }
+
 
 cusumMax = function(scales){
 	let {yScaleCUSUM} = scales
@@ -639,21 +722,19 @@ shuffleData = function(data,scales){
     })
   }
 
-toggleAutomation = function(dict, scales){
-  d3.select("#shuffleBatch").on("click", function(){
-    //automate =! automate;
-    //automateShuffle(dict,scales);
-    clearInterval()
-  })
-}
 
 shuffleInterval = function(dict,scales){
   d3.select("#shuffleBatch").on("click", function(){
-  automate =! automate;
-  inter = setInterval(function() {
-    automateShuffle(dict,scales);
-  }, 100);
-
+    automate =! automate
+    if (automate){
+      inter = setInterval(function() {
+        automateShuffle(dict,scales);
+      }, 100);
+      d3.select(this).text("stop");
+    } else {
+      clearInterval(inter);
+      d3.select(this).text("start");
+    }
   })
 }
 
@@ -775,7 +856,7 @@ showData = function(){
   drawLine(combinedArray,scales);
   cusumHeights = [];
   cusumHeightsDict = [];
-  toggleBars();
+  //toggleBars();
   drawHisto(scales);
   shuffleData(dict,scales);
   shuffleInterval(dict,scales);
