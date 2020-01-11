@@ -1,6 +1,8 @@
 <html>
 
 <head>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Caveat">
     <style>
       /*CSS Styling*/
       .line {
@@ -75,12 +77,14 @@
         padding-bottom: 10px;
       }
       #annCont {
-        padding-left: 20px;
-        /*background: no-repeat left/380px 250px url('Paper.PNG');*/
+        margin-left: 20px;
+        background: no-repeat left/100% 100% url('Paper.PNG');
+        height: 250px;
+        width: 400px;
       }
-      #AnnSvg {
-        background: no-repeat left/450px 100% url('Paper.PNG');
-        font-family: "Caveat"
+      #AnnWindow, #pageNum {
+        font-family: "Caveat";
+        font-size: 22px;
       }
       .histo-lab {
         fill: #9d9d9d;
@@ -158,12 +162,10 @@ let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
   .attr("height", h)
   .append("g")
     .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
-let AnnSvg = d3.select("#annCont")
-  .append("svg")
-  .attr("id","AnnSvg")
-  .attr("width",450)
-  .attr("height",h)
-  .append("g").attr("transform","translate(45,32)")
+
+let AnnSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h-40)
+let AnnWindow = AnnSvg.append("g").attr("transform","translate(60,32)").attr("id","AnnWindow")
+let PageNum = AnnSvg.append("g").attr("transform","translate(400,0)").attr("id","PageNum")
 
 
 
@@ -283,33 +285,95 @@ drawLine = function(data,scales){
           .attr("class","line")
           lineTrans(line,4000,0)
 
-  AnnSvg
-    .append("text").attr("id","Ann1")
+//  let pageNum = d3.select("#annCont").append("svg")
+
+  PageNum
+    .append("text")
+    .attr("text-anchor","middle")
+    .text("1")
+    .attr("dx","-1.1em")
+    .attr("dy","1.1em")
+
+  AnnWindow
+    .append("text").attr("class","ann1")
     .attr("text-anchor","left")
-    .text("1. take a time series")
-    .attr("opacity",1)
+    .text("take a time series")
     .attr("dy","1em")
 
-  let meanLine = svg.append("g").append("line")
-    .attr("x1",0)
-	  .attr("x2",0)
-	  .attr("y1",yScale(mean))
-	  .attr("y2",yScale(mean))
-	  .attr("stroke","black")
-	  .transition().duration(1500).delay(4000)
-    .attr("x2",w).on("end",
+  AnnWindow
+    .append("text").attr("class","ann1")
+    .attr("text-anchor","left")
+    .text("...here is a random trend")
+    .transition().duration(4000)
+    .attr("opacity",1)
+    .attr("dy","2.5em")
+    .attr("dx","0.5em")
+    .on("end",
       function(){
-        AnnSvg.append("text").attr("id","deltaAnn")
-          .text("2. calculate differences from the trend mean")
-          .attr("opacity",0)
-          .attr("dy","2.5em")
-          .transition().duration(500).attr("opacity",1);
-        setTimeout(function(){drawBars(dict,scales);}, 500);
-        d3.select("#Ann1").transition().attr("opacity",0.3)
+        setTimeout(function(){
+          d3.select("#annCont").append("button").attr("id","next").text("next");
+          stepSequencer(dict,scales)
+        }, 500);
       }
     )
 
+
+
 }
+
+step = 1
+
+
+stepSequencer = function(dict,scales){
+  d3.select("#next").on("click",function(){
+
+    if (step == 1){
+      PageNum.select("text").text("2");
+      d3.selectAll(".ann1").remove();
+
+      AnnWindow
+        .append("text").attr("class","ann2")
+        .attr("text-anchor","left")
+        .text("calculate the deviations from mean")
+        .transition().duration(800)
+        .attr("opacity",1)
+        .attr("dy","1em")
+        .on("end", function(){
+            drawMeanLine(dict,scales);
+        })
+
+      step = 2;
+
+    } else if (step == 2){
+      d3.selectAll(".ann2").remove();
+      PageNum.select("text").text("3");
+      // bars.transition().duration(1000).attr("fill","rgb(184,184,184)")
+      //   .on("end", animateWaterfall(rsData, scales));
+      animateWaterfall(rsData, scales);
+      step = 3;
+    }
+
+  })
+}
+
+
+
+drawMeanLine = function(dict,scales){
+  let {yScale} = scales;
+  let meanLine = svg.append("g").append("line")
+    .attr("x1",0)
+    .attr("x2",0)
+    .attr("y1",yScale(mean))
+    .attr("y2",yScale(mean))
+    .attr("stroke","black")
+    .transition().duration(1500)
+    .attr("x2",w)
+    .on("end",function(){
+        setTimeout(function(){drawBars(dict,scales)},500);
+      })
+
+}
+
 
 drawBars = function(data,scales){
   let {xScale,yScale} = scales;
@@ -331,11 +395,10 @@ drawBars = function(data,scales){
        //.delay(function(d,i){return i*50})
        .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
-       .end().then(() => {
-         setTimeout(function(){animateWaterfall(rsData, scales);}, 2000);
-         setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
-         d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
-       });
+       // .end().then(() => {
+       //   //setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
+       //   //d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
+       // });
 
   d3.select("#lineChartCont").append("button").attr("id","toggleBars").text("Toggle")
   toggleBars();
@@ -355,12 +418,11 @@ animateWaterfall = function(data, scales){
 
   d3.select("#Ann1").transition().attr("opacity",0.3)
 
-  AnnSvg
+  AnnWindow
     .append("text").attr("id","rsAnn")
     .attr("text-anchor","left")
-    .text("3. plot the running sum of deltas")
-    .attr("opacity",1)
-    .attr("dy","4em")
+    .text("plot the running sum of deltas")
+    .attr("dy","1em")
 
 	rsData2 = []
 
@@ -598,34 +660,8 @@ shuffleData = function(data,scales){
     let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
 
 
-    //First Shuffle: Original Line Chart Thumbnail + Extend Max Line
+    //First Shuffle: Extend Max Line
     if (shuffleCount === 0){
-       //
-	     // originLineSvg = d3.select("#topView")
-       //    .append("svg")
-       //    .attr("width", 100)
-       //    .attr("height",60)
-       //    .style("border-radius", "6px")
-       //    .style("background-color", "#F7F8F9")
-       //    .style("margin-left","10px")
-       //
-	     //  let shrunkenX = d3.scaleBand()
-			 //     .domain(d3.range(combinedArray.length))
-			 //     .range([0,100])
-       //
-	     //  let shrunkenY = d3.scaleLinear()
-			 //    .domain([d3.min(combinedArray), d3.max(combinedArray)])
-			 //    .range([60,0])
-       //
-	     //  shrunkenValueLine = d3.line()
-	     //   .x(function(d,i){return shrunkenX(i)})
-	     //   .y(d => shrunkenY(d))
-       //
-  	   //  originLineSvg.append("g").attr("id","OL").append("path")
-  		 //  .datum(combinedArray)
-  		 //  .attr("d", shrunkenValueLine)
-  		 //  .attr("class","line")
-  		 //  .style("stroke-width","0.5px")
 
         //Extend Max Line
         cusumSvg.select("line")
