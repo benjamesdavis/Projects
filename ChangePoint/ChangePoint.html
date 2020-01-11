@@ -82,12 +82,12 @@
         background: no-repeat left/450px 100% url('Paper.PNG');
         font-family: "Caveat"
       }
-      #histoLab {
+      .histo-lab {
+        fill: #9d9d9d;
         font-family: "Bitter";
-        font-size: 16px;
-        color: #b5b5b5;
-        transform: rotate(90deg) translate(1.2em,-1.6em);
-        transform-origin: 0 0
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        transform: rotate(90deg);
       }
       #histo-container {
         border: 0px;
@@ -172,12 +172,12 @@ var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0")
   gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
   gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
   gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
-let histoSVG = d3.select("#histoChart").append("svg").attr("id","histo-container").attr("width",125).attr("height",h)
-let histoBackground = histoSVG.append("rect").attr("class","histoBackground").attr("width",125).attr("height",h)
-//d3.select("#histoLab").text("Dist. of simulation scores")
+histoWidth = 125
+let histoSVG = d3.select("#histoChart").append("svg").attr("id","histo-container").attr("width",histoWidth).attr("height",h)
+let histoBackground = histoSVG.append("rect").attr("class","histoBackground").attr("width",histoWidth).attr("height",h)
 var histoGradient = histoSVG.append("linearGradient").attr("id","histoGrad").attr("x1","0").attr("x2","1").attr("y1","0").attr("y2","0")
-  histoGradient.append('stop').attr('stop-color', d3.rgb("#2c3e50")).attr('offset', '82%');
-  histoGradient.append('stop').attr('stop-color', d3.rgb("#b7b7b7")).attr('offset', '18%');
+  histoGradient.append('stop').attr('stop-color', d3.rgb("#2c3e50")).attr('offset', '84%');
+  histoGradient.append('stop').attr('stop-color', d3.rgb("#d9d9db")).attr('offset', '16%');
 
 let Button = d3.select("#Shuffle")
 //let ToggleBars = d3.select("#showBars")
@@ -546,7 +546,7 @@ drawHisto = function(scales){
      .style("opacity",0)
 
  simCount = histoSVG.append("g").attr("id","simCount")
-  .attr("transform", "translate(50,"+(h-(h/20))+")")
+  .attr("transform", "translate(55,"+(h-(h/20))+")")
 
  simCountNum = simCount.append("text").attr("class","num-text")
    .text(0)
@@ -561,7 +561,7 @@ drawHisto = function(scales){
 
 
  hitRate= histoSVG.append("g").attr("id","hitRate")
-  .attr("transform", "translate(50,"+h/15+")")
+  .attr("transform", "translate(55,"+h/15+")")
 
  hitRateNum = hitRate.append("text").attr("class","num-text")
    .text("0.0%")
@@ -574,6 +574,16 @@ drawHisto = function(scales){
   .text("Hit Rate")
   .attr("text-anchor","middle")
   .attr("dx","-0.3em");
+
+  histoSVG.append("g").attr("transform","translate("+(histoWidth-15)+","+h/2+")")
+    .append("text").attr("class","histo-lab")
+    .text("Dist. of simulation scores")
+    .attr("text-anchor","middle")
+
+
+
+
+
 
 
 
