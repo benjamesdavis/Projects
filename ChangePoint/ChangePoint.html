@@ -121,10 +121,6 @@
         fill: white;
         user-select: none;
       }
-     #PenCircleCont {
-        fill: url('Capture.PNG');
-      }
-
 
 
 
@@ -462,7 +458,16 @@ drawBars = function(data,scales){
        //.delay(function(d,i){return i*50})
        .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
-       .on("end", function(){d3.select("#next").attr("class","nextButton-ready")});
+       .end().then(() =>  {
+         d3.select("#next").attr("class","nextButton-ready");
+         AnnWindow
+           .append("text").attr("class","ann2")
+           .attr("text-anchor","left")
+           .text("...if positive/negative deltas cluster together, this suggests the existence of distinct segments in the trend")
+           .transition().duration(800)
+           .attr("opacity",1)
+           .attr("dy","2.5em")
+       });
        // .end().then(() => {
        //   //setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
        //   //d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
