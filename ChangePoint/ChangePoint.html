@@ -78,11 +78,10 @@
       }
       #annCont {
         margin-left: 20px;
-        background: no-repeat left/100% 100% url('Paper.PNG');
         height: 250px;
         width: 400px;
       }
-      #AnnWindow, #pageNum {
+      #AnnWindow, #pageNum{
         font-family: "Caveat";
         font-size: 22px;
       }
@@ -100,6 +99,34 @@
       .histoBackground {
         fill: url(#histoGrad);
       }
+      #cardSvg {
+        background: no-repeat left/100% 100% url('Paper.PNG');
+      }
+      @keyframes glowing {
+        0% { fill: #dadada;  }
+        50% { fill: #ababac;  }
+        100% { fill: #dadada; }
+      }
+      .nextButton-ready {
+        animation: glowing 1500ms infinite  !important;
+      }
+      .nextButton-waiting {
+        fill: #dadada;
+      }
+      #nextText {
+        transform-origin: right top;
+        transform: rotate(315deg);
+        font-family: "Caveat";
+        font-size: 20px;
+        fill: white;
+        user-select: none;
+      }
+     #PenCircleCont {
+        fill: url('Capture.PNG');
+      }
+
+
+
 
     </style>
 
@@ -119,10 +146,9 @@
 
 <body>
 
-<div class="btn-group" role="group" aria-label="Basic example">
-	<button type="button" class="btn btn-info" id="Shuffle">Scramble Once</button>
+<!--<div class="btn-group" role="group" aria-label="Basic example">
 	<button type="button" class="btn btn-primary" id="shuffleBatch" >start</button>
-</div>
+</div>-->
   <div class="button"><button id="resetOrig" type="button">Reset Orig</button></div>
   <div id="mainView" class = "canvas">
       <div id="title">ChangePoint Analysis</div>
@@ -163,10 +189,28 @@ let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
   .append("g")
     .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
 
-let AnnSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h-40)
-let AnnWindow = AnnSvg.append("g").attr("transform","translate(60,32)").attr("id","AnnWindow")
-let PageNum = AnnSvg.append("g").attr("transform","translate(400,0)").attr("id","PageNum")
+let cardSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h).attr("id","cardSvg")
 
+
+let AnnWindow= cardSvg.append("svg").append("g").attr("transform","translate(55,32)").attr("id","AnnWindow")
+
+//cardSvg.append("svg").attr("id","test").attr("x",50).attr("y",50)
+let PageNum = cardSvg.append("svg").attr("id","pageNum")
+  .append("g").attr("transform","translate(358,5)")
+
+PageNum.append("svg:image")
+  .attr("width",30)
+  .attr("height",30)
+  .attr("xlink:href", "penCircle.png")
+
+
+let nextButtonSize = 38
+let nextButton = cardSvg
+  .append("svg")
+  .attr("width",nextButtonSize)
+  .attr("height",nextButtonSize)
+  .attr("x",357)
+  .attr("y",h-44)
 
 
 let cusumSvg = d3.select("#cusumView").append("svg").attr("id","cusumSvg").attr("width", w*2).attr("height", h).style("border-style", "solid").style("border-width", "0px").style("border-radius", "10px").style("background-color", "#2c3e50")
@@ -174,6 +218,7 @@ var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0")
   gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
   gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
   gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
+
 histoWidth = 125
 let histoSVG = d3.select("#histoChart").append("svg").attr("id","histo-container").attr("width",histoWidth).attr("height",h)
 let histoBackground = histoSVG.append("rect").attr("class","histoBackground").attr("width",histoWidth).attr("height",h)
@@ -181,7 +226,7 @@ var histoGradient = histoSVG.append("linearGradient").attr("id","histoGrad").att
   histoGradient.append('stop').attr('stop-color', d3.rgb("#2c3e50")).attr('offset', '84%');
   histoGradient.append('stop').attr('stop-color', d3.rgb("#d9d9db")).attr('offset', '16%');
 
-let Button = d3.select("#Shuffle")
+
 //let ToggleBars = d3.select("#showBars")
 let lineTrans = function(chart,duration,delay){
   let lineLength =  function(chart){return chart.node().getTotalLength();}
@@ -285,14 +330,13 @@ drawLine = function(data,scales){
           .attr("class","line")
           lineTrans(line,4000,0)
 
-//  let pageNum = d3.select("#annCont").append("svg")
-
   PageNum
     .append("text")
     .attr("text-anchor","middle")
     .text("1")
-    .attr("dx","-1.1em")
-    .attr("dy","1.1em")
+    .attr("dx",12)
+    .attr("dy",22)
+
 
   AnnWindow
     .append("text").attr("class","ann1")
@@ -311,7 +355,11 @@ drawLine = function(data,scales){
     .on("end",
       function(){
         setTimeout(function(){
-          d3.select("#annCont").append("button").attr("id","next").text("next");
+          //d3.select("#annCont").append("button").attr("id","next").text("next");
+          nextButton.append("polygon").attr("id","next").attr("class","nextButton-ready")
+            .attr("points","0,"+nextButtonSize+" "+nextButtonSize+","+nextButtonSize+" "+nextButtonSize+",0")
+          nextButton.append("text").text("next").attr("id","nextText").attr("dy","0.68em").attr("dx","-0.25em")
+          nextButton.append("rect").attr("id","nextOverlay").attr("width",nextButtonSize).attr("height",nextButtonSize).attr("opacity",0)
           stepSequencer(dict,scales)
         }, 500);
       }
@@ -321,13 +369,13 @@ drawLine = function(data,scales){
 
 }
 
+
 step = 1
-
-
 stepSequencer = function(dict,scales){
-  d3.select("#next").on("click",function(){
+  d3.select("#nextOverlay").on("click",function(){
 
     if (step == 1){
+      d3.select("#next").attr("class","nextButton-waiting");
       PageNum.select("text").text("2");
       d3.selectAll(".ann1").remove();
 
@@ -345,13 +393,32 @@ stepSequencer = function(dict,scales){
       step = 2;
 
     } else if (step == 2){
+      d3.select("#next").attr("class","nextButton-waiting");
       d3.selectAll(".ann2").remove();
       PageNum.select("text").text("3");
       // bars.transition().duration(1000).attr("fill","rgb(184,184,184)")
       //   .on("end", animateWaterfall(rsData, scales));
       animateWaterfall(rsData, scales);
       step = 3;
+
+    } else if (step == 3){
+
+      d3.selectAll(".ann3").remove();
+      PageNum.select("text").text("4");
+
+      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","Shuffle").text("shuffle");
+      shuffleData(dict,scales);
+
+      step = 4;
+
+    } else if (step == 4) {
+
+      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle");
+      shuffleInterval(dict,scales);
+
+      step = 5;
     }
+
 
   })
 }
@@ -395,6 +462,7 @@ drawBars = function(data,scales){
        //.delay(function(d,i){return i*50})
        .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
+       .on("end", function(){d3.select("#next").attr("class","nextButton-ready")});
        // .end().then(() => {
        //   //setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
        //   //d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
@@ -419,7 +487,7 @@ animateWaterfall = function(data, scales){
   d3.select("#Ann1").transition().attr("opacity",0.3)
 
   AnnWindow
-    .append("text").attr("id","rsAnn")
+    .append("text").attr("class","ann3")
     .attr("text-anchor","left")
     .text("plot the running sum of deltas")
     .attr("dy","1em")
@@ -491,7 +559,6 @@ animateWaterfall = function(data, scales){
         d3.select("#cusumSvg")
           .append("g").attr("id","callout")
           .call(makeAnnotations);
-        //d3.select(".annotation-note-label").attr("width",600)
       };
 
   function addDelta(){
@@ -556,6 +623,7 @@ cusumMax = function(scales){
     .duration(4000)
     .delay(500)
     .attr("opacity", 1)
+    .on("end",function(){d3.select("#next").attr("class","nextButton-ready")})
 
   xScaleCusumHeightInit = d3.scaleBand()
                       .domain(d3.range(100).reverse())
@@ -656,10 +724,10 @@ drawHisto = function(scales){
 
 
 shuffleData = function(data,scales){
-  Button.on("click", function(){
+  d3.select("#Shuffle").on("click", function(){
     let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
 
-
+    this.blur();
     //First Shuffle: Extend Max Line
     if (shuffleCount === 0){
 
@@ -780,9 +848,8 @@ shuffleData = function(data,scales){
     })
   }
 
-
 shuffleInterval = function(dict,scales){
-  d3.select("#shuffleBatch").on("click", function(){
+  d3.select("#autoShuffle").on("click", function(){
     automate =! automate
     if (automate){
       inter = setInterval(function() {
@@ -791,11 +858,10 @@ shuffleInterval = function(dict,scales){
       d3.select(this).text("stop");
     } else {
       clearInterval(inter);
-      d3.select(this).text("start");
+      d3.select(this).text("auto-shuffle");
     }
   })
 }
-
 
 automateShuffle = function(data,scales){
 
@@ -914,10 +980,7 @@ showData = function(){
   drawLine(combinedArray,scales);
   cusumHeights = [];
   cusumHeightsDict = [];
-  //toggleBars();
   drawHisto(scales);
-  shuffleData(dict,scales);
-  shuffleInterval(dict,scales);
   showOrigTrend(dict,scales)
 }
 showData();
