@@ -53,6 +53,7 @@
         background: #F7F8F9;
         border: 1px solid #d9d9db;
         border-radius: 10px;
+        position: relative;
       }
       .annotation-note-label {
         fill: #78909c;
@@ -121,6 +122,9 @@
         fill: white;
         user-select: none;
       }
+      #toggleBars {
+        position: absolute; right:5; top:5;
+      }
 
 
 
@@ -175,15 +179,16 @@ w = 400
 h = 250
 
 //let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "10px").style("background-color", "#F7F8F9")
-let lineMargin = {top: 50, right: 0, bottom: 30, left: 0};
+let lineMargin = {top: 45, right: 0, bottom: 30, left: 0};
 let lineWidth = w - lineMargin.left - lineMargin.right,
     lineHeight = h - lineMargin.top - lineMargin.bottom;
 
 let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
+  .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
   .attr("width", w)
-  .attr("height", h)
-  .append("g")
-    .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
+  .attr("height", h-lineMargin.top-lineMargin.bottom)
+  //.append("g")
+    //.attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
 
 let cardSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h).attr("id","cardSvg")
 
@@ -235,6 +240,31 @@ let lineTrans = function(chart,duration,delay){
 }
 let showBars = true
 let automate = false
+
+
+function wrap(text, width) {
+  text.each(function() {
+    var text = d3.select(this),
+        words = text.text().split(/\s+/).reverse(),
+        word,
+        line = [],
+        y = text.attr("y"),
+        dy = parseFloat(text.attr("dy")),
+        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", 0.8 + "em").text(word);
+      }
+    }
+  });
+}
+
+
 
 
 
@@ -409,9 +439,6 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 4) {
 
-      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle");
-      shuffleInterval(dict,scales);
-
       step = 5;
     }
 
@@ -423,7 +450,7 @@ stepSequencer = function(dict,scales){
 
 drawMeanLine = function(dict,scales){
   let {yScale} = scales;
-  let meanLine = svg.append("g").append("line")
+  let meanLine = svg.append("g").append("line").attr("id","meanLine")
     .attr("x1",0)
     .attr("x2",0)
     .attr("y1",yScale(mean))
@@ -460,20 +487,71 @@ drawBars = function(data,scales){
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
        .end().then(() =>  {
          d3.select("#next").attr("class","nextButton-ready");
-         AnnWindow
-           .append("text").attr("class","ann2")
-           .attr("text-anchor","left")
-           .text("...if positive/negative deltas cluster together, this suggests the existence of distinct segments in the trend")
-           .transition().duration(800)
-           .attr("opacity",1)
-           .attr("dy","2.5em")
+
+        // AnnWindow.append("text").text("hello").attr("class","greenHighlight")
+
+
+        hG = AnnWindow.append("g").attr("transform","translate(0,53)")
+      //  testg = hG.append("text").attr("id","test")
+
+         let posText = hG
+           .append("text")
+           .text("positive")
+         posBbox = posText.node().getBBox();
+
+         hG.append("text")
+          .text("or")
+          //.attr("dx",3)
+          .attr("dx",hG.node().getBBox().width + 3)
+
+         let negText = hG
+           .append("text")
+           .text("negative").attr("id","negText")
+           .attr("dx",hG.node().getBBox().width+3)
+          negBbox = d3.select("#negText").node().getBBox();
+
+         hG.append("text")
+          .attr("dx",hG.node().getBBox().width + 3)
+          .text("are clustered together")
+        //  .attr("dx",3)
+
+
+
+         hG.insert("image","text")
+          .attr("x",posBbox.x-5)
+          .attr("y",posBbox.y)
+          .attr("width",posBbox.width+10)
+          .attr("height",posBbox.height+2)
+          .attr("xlink:href", "GreenHighlight.png")
+
+
+          hG.insert("image","text")
+           .attr("x",negBbox.x-5)
+           .attr("y",negBbox.y)
+           .attr("width",negBbox.width+10)
+           .attr("height",negBbox.height+2)
+           .attr("xlink:href", "RedHighlight.png")
+
+
+
+          // .attr("text-anchor","left")
+          // .text("positive")
+           //.text("...if positive/negative deltas cluster together, this suggests the existence of distinct segments in the trend")
+           //.attr("dy","2.5em")
+          // .call(wrap,300)
+
+           // .transition().duration(800)
+           // .attr("opacity",1)
+
        });
        // .end().then(() => {
        //   //setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
        //   //d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
        // });
 
-  d3.select("#lineChartCont").append("button").attr("id","toggleBars").text("Toggle")
+  d3.select("#lineChartCont").append("button").attr("id","toggleBars")
+    .text("Toggle")
+
   toggleBars();
 }
 
@@ -481,6 +559,9 @@ toggleBars = function(){
   d3.select("#toggleBars").on("click", function(){
     svg.selectAll("rect")
     .attr("fill-opacity", showBars ? 0 : 0.4)
+
+    d3.select("#meanLine")
+    .attr("stroke-opacity", showBars ? 0 : 0.4)
 
     showBars =! showBars
 })}
@@ -843,6 +924,11 @@ shuffleData = function(data,scales){
       simCountNum.text(shuffleCount)
     }
 
+    if (shuffleCount == 5) {
+      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle ▶");
+      shuffleInterval(dict,scales);
+    }
+
 
   //Push latest CUSUM heights to dataset and increment the shuffleCount
    shuffleCount++
@@ -860,10 +946,10 @@ shuffleInterval = function(dict,scales){
       inter = setInterval(function() {
         automateShuffle(dict,scales);
       }, 100);
-      d3.select(this).text("stop");
+      d3.select(this).text("pause ❚❚");
     } else {
       clearInterval(inter);
-      d3.select(this).text("auto-shuffle");
+      d3.select(this).text("auto-shuffle ▶");
     }
   })
 }
