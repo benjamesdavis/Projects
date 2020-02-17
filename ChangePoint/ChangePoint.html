@@ -86,6 +86,14 @@
         font-family: "Caveat";
         font-size: 22px;
       }
+      @keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      #hG {
+        font-size: 20px;
+        animation: fadein 3s;
+      }
       .histo-lab {
         fill: #9d9d9d;
         font-family: "Bitter";
@@ -114,6 +122,9 @@
       .nextButton-waiting {
         fill: #dadada;
       }
+      .noClick{
+        pointer-events: none;
+      }
       #nextText {
         transform-origin: right top;
         transform: rotate(315deg);
@@ -124,6 +135,10 @@
       }
       #toggleBars {
         position: absolute; right:5; top:5;
+      }
+      #callout {
+        font-family: "Caveat";
+        font-size: 20px;
       }
 
 
@@ -178,7 +193,6 @@
 w = 400
 h = 250
 
-//let svg = d3.select("#topView").append("svg").attr("id","line-chart").attr("width",w).attr("height",h).style("border-radius", "10px").style("background-color", "#F7F8F9")
 let lineMargin = {top: 45, right: 0, bottom: 30, left: 0};
 let lineWidth = w - lineMargin.left - lineMargin.right,
     lineHeight = h - lineMargin.top - lineMargin.bottom;
@@ -187,8 +201,6 @@ let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
   .attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
   .attr("width", w)
   .attr("height", h-lineMargin.top-lineMargin.bottom)
-  //.append("g")
-    //.attr("transform", "translate("+lineMargin.left+", "+lineMargin.top+")")
 
 let cardSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h).attr("id","cardSvg")
 
@@ -367,7 +379,7 @@ drawLine = function(data,scales){
   AnnWindow
     .append("text").attr("class","ann1")
     .attr("text-anchor","left")
-    .text("take a time series")
+    .text("Take a time series")
     .attr("dy","1em")
 
   AnnWindow
@@ -395,20 +407,28 @@ drawLine = function(data,scales){
 
 }
 
+function wait(){
+  d3.select("#next").attr("class","nextButton-waiting");
+  d3.select("#nextOverlay").attr("class","noClick")
+}
+function ready(){
+  d3.select("#next").attr("class","nextButton-ready");
+  d3.select("#nextOverlay").attr("class",null)
+}
 
 step = 1
 stepSequencer = function(dict,scales){
   d3.select("#nextOverlay").on("click",function(){
 
     if (step == 1){
-      d3.select("#next").attr("class","nextButton-waiting");
+      wait();
       PageNum.select("text").text("2");
       d3.selectAll(".ann1").remove();
 
       AnnWindow
         .append("text").attr("class","ann2")
         .attr("text-anchor","left")
-        .text("calculate the deviations from mean")
+        .text("Calculate the deviations from mean")
         .transition().duration(800)
         .attr("opacity",1)
         .attr("dy","1em")
@@ -418,28 +438,42 @@ stepSequencer = function(dict,scales){
 
       step = 2;
 
-    } else if (step == 2){
-      d3.select("#next").attr("class","nextButton-waiting");
-      d3.selectAll(".ann2").remove();
-      PageNum.select("text").text("3");
-      // bars.transition().duration(1000).attr("fill","rgb(184,184,184)")
-      //   .on("end", animateWaterfall(rsData, scales));
-      animateWaterfall(rsData, scales);
+    } else if (step == 2) {
+      AnnWindow.append("text").attr("class","ann2")
+        .text("But how can we quantify this effect?")
+        .attr("y",AnnWindow.node().getBBox().height)
+        .attr("dy","1.1em")
+        .transition().duration(800)
+        .attr("opacity",1);
+
       step = 3;
 
-    } else if (step == 3){
-
-      d3.selectAll(".ann3").remove();
-      PageNum.select("text").text("4");
-
-      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","Shuffle").text("shuffle");
-      shuffleData(dict,scales);
-
+    } else if (step == 3) {
+      d3.select("#hG").remove();
+      wait();
+      d3.selectAll(".ann2").remove();
+      PageNum.select("text").text("3");
+      animateWaterfall(rsData, scales);
       step = 4;
 
-    } else if (step == 4) {
-
+    } else if (step ==4){
+      AnnWindow.append("text").attr("class","ann3")
+        .text("How can we tell whether this change-point is significant?")
+        .attr("dy","2.5em")
+        .call(wrap,300)
       step = 5;
+
+    } else if (step == 5){
+
+      d3.selectAll(".ann3").remove();
+      d3.select("#cusumMaxAnn").remove();
+      PageNum.select("text").text("4");
+
+      d3.select("#annCont").append("button").attr("class","btn btn-info").attr("id","Shuffle").text("shuffle");
+      shuffleData(dict,scales);
+
+      step = 6;
+
     }
 
 
@@ -476,7 +510,6 @@ drawBars = function(data,scales){
        .attr("y", yScale(mean))
        .attr("height",0)
        .attr("width", xScale.bandwidth())
-       //.attr("fill", "grey")
        .attr("fill", d =>  d.value > mean ? "green" : "red")
        .attr('fill-opacity', 0.4)
 
@@ -486,68 +519,78 @@ drawBars = function(data,scales){
        .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
        .end().then(() =>  {
-         d3.select("#next").attr("class","nextButton-ready");
 
-        // AnnWindow.append("text").text("hello").attr("class","greenHighlight")
+        //Highlighted text
+        hG = AnnWindow.append("g").attr("id","hG").attr("transform","translate(10,53)")
 
+          hG.append("text")
+            .text("...if ")
 
-        hG = AnnWindow.append("g").attr("transform","translate(0,53)")
-      //  testg = hG.append("text").attr("id","test")
-
-         let posText = hG
-           .append("text")
-           .text("positive")
-         posBbox = posText.node().getBBox();
-
-         hG.append("text")
-          .text("or")
-          //.attr("dx",3)
-          .attr("dx",hG.node().getBBox().width + 3)
-
-         let negText = hG
-           .append("text")
-           .text("negative").attr("id","negText")
-           .attr("dx",hG.node().getBBox().width+3)
-          negBbox = d3.select("#negText").node().getBBox();
-
-         hG.append("text")
-          .attr("dx",hG.node().getBBox().width + 3)
-          .text("are clustered together")
-        //  .attr("dx",3)
+           let posText = hG
+             .append("text")
+             .attr("dx",hG.node().getBBox().width + 3)
+             .text("positive")
+           posBbox = posText.node().getBBox();
 
 
+           hG.insert("rect","text").attr("id","posMask")
+            .attr("x",posBbox.x-5)
+            .attr("y",posBbox.y+6)
+            .attr("width",posBbox.width+10)
+            .attr("height",posBbox.height-10)
+            .attr("fill","white")
 
-         hG.insert("image","text")
-          .attr("x",posBbox.x-5)
-          .attr("y",posBbox.y)
-          .attr("width",posBbox.width+10)
-          .attr("height",posBbox.height+2)
-          .attr("xlink:href", "GreenHighlight.png")
+           hG.insert("image","rect")
+            .attr("x",posBbox.x-5)
+            .attr("y",posBbox.y)
+            .attr("width",posBbox.width+10)
+            .attr("height",posBbox.height+2)
+            .attr("xlink:href", "GreenHighlight.png")
 
+           hG.append("text")
+            .text("/")
+            .attr("dx",hG.node().getBBox().width + 3)
 
-          hG.insert("image","text")
-           .attr("x",negBbox.x-5)
-           .attr("y",negBbox.y)
-           .attr("width",negBbox.width+10)
-           .attr("height",negBbox.height+2)
-           .attr("xlink:href", "RedHighlight.png")
+           let negText = hG
+             .append("text")
+             .text("negative").attr("id","negText")
+             .attr("dx",hG.node().getBBox().width+3)
+            negBbox = d3.select("#negText").node().getBBox();
 
+            hG.insert("rect","text").attr("id","negMask")
+             .attr("x",negBbox.x-5)
+             .attr("y",negBbox.y+6)
+             .attr("width",negBbox.width+10)
+             .attr("height",negBbox.height-10)
+             .attr("fill","white")
 
+            hG.insert("image","rect")
+             .attr("x",negBbox.x-5)
+             .attr("y",negBbox.y)
+             .attr("width",negBbox.width+10)
+             .attr("height",negBbox.height+2)
+             .attr("xlink:href", "RedHighlight.png")
 
-          // .attr("text-anchor","left")
-          // .text("positive")
-           //.text("...if positive/negative deltas cluster together, this suggests the existence of distinct segments in the trend")
-           //.attr("dy","2.5em")
-          // .call(wrap,300)
+           hG.append("text")
+            .attr("dx",hG.node().getBBox().width + 3)
+            .text("deltas are clustered")
 
-           // .transition().duration(800)
-           // .attr("opacity",1)
+            hG.append("text")
+             .attr("dy","0.9em")
+             .text("together ->  this suggests the existince of distinct segments in the trend")
+             .call(wrap,300)
+
+            setTimeout(function(){
+              d3.select("#posMask").transition().duration(500).attr("width",0).remove();
+            },1200)
+            setTimeout(function(){
+              d3.select("#negMask").transition().duration(500).attr("width",0).remove();
+              ready();
+            },2200)
+
 
        });
-       // .end().then(() => {
-       //   //setTimeout(function(){bars.transition().duration(800).attr("fill","rgb(184,184,184)");}, 500);
-       //   //d3.select("#deltaAnn").transition().duration(500).attr("opacity",0.3)
-       // });
+
 
   d3.select("#lineChartCont").append("button").attr("id","toggleBars")
     .text("Toggle")
@@ -575,7 +618,7 @@ animateWaterfall = function(data, scales){
   AnnWindow
     .append("text").attr("class","ann3")
     .attr("text-anchor","left")
-    .text("plot the running sum of deltas")
+    .text("Plot the running sum of deltas")
     .attr("dy","1em")
 
 	rsData2 = []
@@ -594,13 +637,11 @@ animateWaterfall = function(data, scales){
   //Annotation Callout Value
   cusumPeak = rsData.slice().sort((a, b) => d3.descending(a.end, b.end))
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
 
   //Cycle through updateData until all data points are rendered
   let duration = 120
+
+
 
   function pollDOM(){
     //if max point, draw callout, and then remove
@@ -645,6 +686,8 @@ animateWaterfall = function(data, scales){
         d3.select("#cusumSvg")
           .append("g").attr("id","callout")
           .call(makeAnnotations);
+
+
       };
 
   function addDelta(){
@@ -691,8 +734,38 @@ cusumMax = function(scales){
   origHeight = rsMax
   origHeight2 = rsMax - rsMin
 
+  function cusumMaxAnn(){
+        //Features of the annotation
+        const annotations = [{
+            note: {label: "The resulting curve height reflects the strength of the change-point effect, and becomes our test statistic", wrap:240},
+            x: w, y: yScaleCUSUM(rsMax),
+            dy: -20, dx: 20,
+        }]
+
+        //Add annotation to the Chart
+        const makeAnnotations = d3.annotation()
+          //.editMode(true)
+          .type(d3.annotationCalloutElbow)
+          .annotations(annotations)
+        d3.select("#cusumSvg")
+          .append("g").attr("id","cusumMaxAnn")
+          .call(makeAnnotations);
+
+        AnnConnector = d3.select("#cusumMaxAnn").selectAll(".connector")
+        NoteLine = d3.select("#cusumMaxAnn").selectAll(".note-line")
+        AnnText = d3.select("#cusumMaxAnn").selectAll(".annotation-note-label")
+        lineTrans(AnnConnector,400,0)
+        lineTrans(NoteLine,1000,400)
+        AnnText.attr("opacity",0)
+          .transition().delay(1200)
+          .duration(500)
+          .attr("opacity",1)
+
+  }
+
   //Draw cusumHeightBars underneath OrigHeight line
   cusumSvg.append("g").attr("id","cusumHeightBars")
+
 
 	cusumSvg.append("line")
 		.attr("x1",0)
@@ -703,13 +776,14 @@ cusumMax = function(scales){
 		.transition()
     .duration(1500)
 		.attr("x2",w)
+    //.on("end",function(){cusumMaxAnn()})
 
   cusumSvg.select("#cusumRect")
     .transition()
-    .duration(4000)
-    .delay(500)
+    .duration(1500)
+    .delay(1500)
     .attr("opacity", 1)
-    .on("end",function(){d3.select("#next").attr("class","nextButton-ready")})
+    .on("end",function(){ready();cusumMaxAnn();})
 
   xScaleCusumHeightInit = d3.scaleBand()
                       .domain(d3.range(100).reverse())
@@ -722,8 +796,10 @@ cusumMax = function(scales){
                       .padding(0.1)
 
 
-
 }
+
+
+
 
 drawHisto = function(scales){
   let {yScaleCUSUM} = scales;
@@ -731,7 +807,7 @@ drawHisto = function(scales){
   histogram =  d3.histogram()
     .value(d => d)
     .domain(yScaleCUSUM.domain())
-    .thresholds(yScaleCUSUM.ticks(40))
+    .thresholds(yScaleCUSUM.ticks(45))
 
   bins = histogram(cusumHeights)
 
@@ -925,7 +1001,7 @@ shuffleData = function(data,scales){
     }
 
     if (shuffleCount == 5) {
-      d3.select("#annCont").append("label").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle ▶");
+      d3.select("#annCont").append("button").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle ▶");
       shuffleInterval(dict,scales);
     }
 
