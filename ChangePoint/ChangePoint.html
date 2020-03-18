@@ -140,6 +140,9 @@
         font-family: "Caveat";
         font-size: 20px;
       }
+      #buttonOverlay: hover {
+        fill: red
+      }
 
 
 
@@ -453,17 +456,27 @@ stepSequencer = function(dict,scales){
       wait();
       d3.selectAll(".ann2").remove();
       PageNum.select("text").text("3");
-      animateWaterfall(rsData, scales);
+      AnnWindow
+        .append("text").attr("class","ann3")
+        .attr("text-anchor","left")
+        .text("By plotting the running sum of deltas, we get a curve describing the extent of segmentation within the trend")
+        .attr("dy","1em")
+        .call(wrap,300);
+      setTimeout(function(){ready()},1500);
       step = 4;
 
-    } else if (step ==4){
-      AnnWindow.append("text").attr("class","ann3")
-        .text("How can we tell whether this change-point is significant?")
-        .attr("dy","2.5em")
-        .call(wrap,300)
+    } else if (step == 4) {
+      animateWaterfall(rsData, scales);
       step = 5;
 
     } else if (step == 5){
+        AnnWindow.append("text").attr("class","ann3")
+          .text("How can we tell whether this change-point is significant?")
+          .attr("dy","2.5em")
+          .call(wrap,300)
+        step = 6;
+
+    } else if (step == 6){
 
       d3.selectAll(".ann3").remove();
       d3.select("#cusumMaxAnn").remove();
@@ -472,7 +485,15 @@ stepSequencer = function(dict,scales){
       d3.select("#annCont").append("button").attr("class","btn btn-info").attr("id","Shuffle").text("shuffle");
       shuffleData(dict,scales);
 
-      step = 6;
+      shuffleButton = cardSvg.append("div")
+        .attr("class","buttonBase")
+        .attr("x",0).attr("y",0)
+        .attr("width",100).attr("height",50)
+        .attr("background-color","blue")
+        .attr("border-radius",10)
+      shuffleButton.append("text").attr("x",50).attr("y",25).text("Shuffle").attr("text-anchor","middle").attr("fill","white").attr("font-size",20)
+
+      step = 7;
 
     }
 
@@ -615,12 +636,6 @@ animateWaterfall = function(data, scales){
 
   d3.select("#Ann1").transition().attr("opacity",0.3)
 
-  AnnWindow
-    .append("text").attr("class","ann3")
-    .attr("text-anchor","left")
-    .text("Plot the running sum of deltas")
-    .attr("dy","1em")
-
 	rsData2 = []
 
 	clickCount = 0
@@ -672,7 +687,7 @@ animateWaterfall = function(data, scales){
 
         //Features of the annotation
         const annotations = [{
-            note: {label: "If pos or neg deltas are clustered together, the curve will gain momentum, and grow taller", wrap:250},
+            note: {label: "If positve (or negative) deltas are clustered together, the curve will gain momentum, and grow taller", wrap:280},
             x: highestIndex, y: highestValue,
             dy: 50, dx: 50,
             subject: {radius: 35}
@@ -1022,7 +1037,7 @@ shuffleInterval = function(dict,scales){
       inter = setInterval(function() {
         automateShuffle(dict,scales);
       }, 100);
-      d3.select(this).text("pause ❚❚");
+      d3.select(this).text("❚❚");
     } else {
       clearInterval(inter);
       d3.select(this).text("auto-shuffle ▶");
