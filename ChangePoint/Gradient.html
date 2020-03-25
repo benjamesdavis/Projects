@@ -1,0 +1,99 @@
+<html>
+
+<head>
+    <style>
+    /*CSS Styling*/
+
+    .filled {
+        fill: url(#mainGradient);
+    }
+    .outlined {
+             fill:   none;
+             stroke: url(#mainGradient);
+             stroke-width: 4;
+         }
+    .grad {
+  fill: url(#mainGradient);
+  }
+  .non {
+fill: blue;
+}
+    </style>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+
+</head>
+
+
+<body>
+  <div id="svg-container"></div>
+</body>
+
+<script>
+// Create the SVG element and set its dimensions.
+  data = [5,6,3]
+
+  var width  = 800,
+      height = 200,
+      padding = 15;
+
+  var div = d3.select('#svg-container'),
+      svg = div.append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+  xScale = d3.scaleBand()
+    .domain(d3.range(data.length))
+    .range([0,width])
+
+  yScale = d3.scaleLinear()
+    .domain([0, d3.max(data.map(d => d))])
+    .range([height,0])
+
+  svg.selectAll("rect")
+    .data(data)
+    .enter()
+    .append("rect")
+    .attr("x", function(d,i){return xScale(i)})
+    .attr("y", d => yScale(d))
+    .attr("height",d => height - yScale(d))
+    .attr("width",xScale.bandwidth())
+    .attr("class",d => d > 4 ? "grad" : "non")
+    //.attr("fill", "black")
+
+  var mainGradient = svg.append('linearGradient')
+                .attr('id', 'mainGradient');
+
+  // Create the stops of the main gradient. Each stop will be assigned
+           // a class to style the stop using CSS.
+   mainGradient.append('stop')
+       .attr('stop-color', 'grey')
+       .attr('offset', '0');
+
+   mainGradient.append('stop')
+                 .attr('stop-color', 'blue')
+                 .attr('offset', '1');
+
+  mainGradient.attr("gradientTransform","rotate(90)")
+     //
+     //
+     // // Use the gradient to set the shape fill, via CSS.
+     // svg.append('rect')
+     //     .attr('class', "filled")
+     //     .attr('x', padding)
+     //     .attr('y', padding)
+     //     .attr('width', (width / 2) - 1.5 * padding)
+     //     .attr('height', height - 2 * padding);
+     //
+     // // Use the gradient to set the shape stroke, via CSS.
+     //  svg.append('rect')
+     //      .classed('outlined', true)
+     //      .attr('x', width / 2 + padding / 2)
+     //      .attr('y', padding)
+     //      .attr('width', (width / 2) - 1.5 * padding)
+     //      .attr('height', height - 2 * padding);
+
+
+
+</script>
+
+</html>
