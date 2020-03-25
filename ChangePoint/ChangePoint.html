@@ -108,13 +108,18 @@
       .histoBackground {
         fill: url(#histoGrad);
       }
-      #cardSvg {
+      #annCont {
         background: no-repeat left/100% 100% url('Paper.PNG');
+        position: relative;
       }
       @keyframes glowing {
         0% { fill: #dadada;  }
         50% { fill: #ababac;  }
         100% { fill: #dadada; }
+      }
+      #nextButton {
+        position: absolute;
+        bottom: 6px; right: 5px;
       }
       .nextButton-ready {
         animation: glowing 1500ms infinite  !important;
@@ -140,9 +145,73 @@
         font-family: "Caveat";
         font-size: 20px;
       }
-      #buttonOverlay: hover {
-        fill: red
+      .shuffle-button {
+        background: linear-gradient(to left, rgba(0,0,0,0) 50%, rgba(230, 242, 255,1) 50%);
+        background-size: 200% 100%;
+        background-position:right bottom;
+        transition:all 0.4s ease;
       }
+      .shuffle-button:hover {
+        background-position:left bottom;
+      }
+      .shuffle-button:active {
+        background: linear-gradient(to left, rgba(92,108,124,1)  50%, rgba(92,108,124,1) 50%)
+      }
+      .shuffle-text {
+        user-select: none;
+        font-family: "Caveat";
+        font-size: 20px;
+      }
+      .shuffle-button:active > .shuffle-text{
+        fill: white;
+      }
+      #pageNum {
+        position: absolute;
+        top: 5px; right: 9px;
+      }
+      #annWindow {
+        position: absolute;
+        top: 32px; left: 55px;
+      }
+      #buttonG {
+        position: absolute;
+        top: 40%; left: 20%;
+      }
+      #autoButton {
+        margin-left: 20px
+      }
+      #resetButton {
+        position: absolute;
+        top:2%; right:2%;
+        border-radius: 50%;
+        border: 1px solid rgba(0,0,0,0.1);
+      }
+      #arrow {
+        transform-origin: 20px 55px;
+        transform: rotate(-85deg);
+        offset-path: path('M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30');
+        animation: move 1.2s linear forwards;
+      }
+
+      @keyframes move {
+        100% {
+          offset-distance: 100%;
+        }
+      }
+      #resetButton:hover {
+        background-color: darkgrey;
+      }
+      #resetButton:active {
+        background-color: dimgrey;
+      }
+      #resetButton:hover > #arrow{
+        fill: white;
+      }
+      #resetButton:hover > #circle{
+        stroke: white;
+      }
+
+
 
 
 
@@ -167,7 +236,6 @@
 <!--<div class="btn-group" role="group" aria-label="Basic example">
 	<button type="button" class="btn btn-primary" id="shuffleBatch" >start</button>
 </div>-->
-  <div class="button"><button id="resetOrig" type="button">Reset Orig</button></div>
   <div id="mainView" class = "canvas">
       <div id="title">ChangePoint Analysis</div>
       <div id="topView" class = "subdiv">
@@ -205,24 +273,28 @@ let svg = d3.select("#lineChartCont").append("svg").attr("id","lineChart")
   .attr("width", w)
   .attr("height", h-lineMargin.top-lineMargin.bottom)
 
-let cardSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h).attr("id","cardSvg")
+//let cardSvg = d3.select("#annCont").append("svg").attr("width",w).attr("height",h).attr("id","cardSvg")
+annCont = d3.select("#annCont")
 
-
-let AnnWindow= cardSvg.append("svg").append("g").attr("transform","translate(55,32)").attr("id","AnnWindow")
+let AnnWindow= annCont.append("svg").attr("id","AnnWindow").attr("width",320).attr("height",200)
+  //.attr("width","auto").attr("height","auto")
 
 //cardSvg.append("svg").attr("id","test").attr("x",50).attr("y",50)
-let PageNum = cardSvg.append("svg").attr("id","pageNum")
-  .append("g").attr("transform","translate(358,5)")
-
-PageNum.append("svg:image")
+let PageNum = annCont.append("svg").attr("id","pageNum")
   .attr("width",30)
   .attr("height",30)
+  .append("g").attr("transform","translate(0,0)")
+
+PageNum.append("svg:image")
+  .attr("width","100%")
+  .attr("height","100%")
   .attr("xlink:href", "penCircle.png")
 
 
 let nextButtonSize = 38
-let nextButton = cardSvg
+let nextButton = annCont
   .append("svg")
+  .attr("id","nextButton")
   .attr("width",nextButtonSize)
   .attr("height",nextButtonSize)
   .attr("x",357)
@@ -388,7 +460,7 @@ drawLine = function(data,scales){
   AnnWindow
     .append("text").attr("class","ann1")
     .attr("text-anchor","left")
-    .text("...here is a random trend")
+    .text("...here is a generated trend")
     .transition().duration(4000)
     .attr("opacity",1)
     .attr("dy","2.5em")
@@ -443,9 +515,10 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 2) {
       AnnWindow.append("text").attr("class","ann2")
-        .text("But how can we quantify this effect?")
-        .attr("y",AnnWindow.node().getBBox().height)
-        .attr("dy","1.1em")
+        .text("But how can we quantify and test this effect?")
+        //.attr("y",AnnWindow.node().getBBox().height)
+        .attr("dy","6.2em")
+        .call(wrap,300)
         .transition().duration(800)
         .attr("opacity",1);
 
@@ -453,16 +526,21 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 3) {
       d3.select("#hG").remove();
-      wait();
       d3.selectAll(".ann2").remove();
       PageNum.select("text").text("3");
+      wait();
       AnnWindow
         .append("text").attr("class","ann3")
         .attr("text-anchor","left")
         .text("By plotting the running sum of deltas, we get a curve describing the extent of segmentation within the trend")
         .attr("dy","1em")
         .call(wrap,300);
+
+      //Grey out delta bars
+      svg.selectAll("rect").transition().duration(2000).attr("fill","rgb(184,184,184)");
+
       setTimeout(function(){ready()},1500);
+
       step = 4;
 
     } else if (step == 4) {
@@ -471,8 +549,8 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 5){
         AnnWindow.append("text").attr("class","ann3")
-          .text("How can we tell whether this change-point is significant?")
-          .attr("dy","2.5em")
+          .text("How can we tell whether this segmentation is convincing enough to declare a change-point?")
+          .attr("dy","4em")
           .call(wrap,300)
         step = 6;
 
@@ -482,21 +560,47 @@ stepSequencer = function(dict,scales){
       d3.select("#cusumMaxAnn").remove();
       PageNum.select("text").text("4");
 
-      d3.select("#annCont").append("button").attr("class","btn btn-info").attr("id","Shuffle").text("shuffle");
+      AnnWindow.append("text").attr("class","ann4")
+        .text("We can simulate chance by repeatedly shuffling the order of data points in the trend")
+        .attr("dy","1em")
+        .call(wrap,300)
+       step = 7;
+
+    } else if (step == 7){
+      buttonWidth = 100;
+      buttonHeight = 30;
+
+      buttonG = annCont.append("g").attr("id","buttonG")
+
+      function shuffleButton(){
+        ShuffleButton = buttonG.append("svg")
+          .attr("id","shuffleButton")
+          .attr("class","shuffle-button")
+          .attr("width", buttonWidth)
+          .attr("height",buttonHeight)
+        ShuffleButton.append("text")
+          .attr("class","shuffle-text")
+          .attr("x","50%")
+          .attr("y","50%")
+          .text("Shuffle")
+          .attr("text-anchor","middle")
+          .attr("dominant-baseline","middle")
+        ShuffleButton.append("line")
+          .attr("x1",0)
+          .attr("x2",0)
+          .attr("y1",buttonHeight-1)
+          .attr("y2",buttonHeight-1)
+          .attr("stroke-width", 2)
+          .attr("stroke","black")
+          .transition().duration(1500)
+            .attr("x2",buttonWidth)
+      }
+      shuffleButton();
+
       shuffleData(dict,scales);
 
-      shuffleButton = cardSvg.append("div")
-        .attr("class","buttonBase")
-        .attr("x",0).attr("y",0)
-        .attr("width",100).attr("height",50)
-        .attr("background-color","blue")
-        .attr("border-radius",10)
-      shuffleButton.append("text").attr("x",50).attr("y",25).text("Shuffle").attr("text-anchor","middle").attr("fill","white").attr("font-size",20)
-
-      step = 7;
-
+      step = 8;
     }
-
 
   })
 }
@@ -541,100 +645,108 @@ drawBars = function(data,scales){
        .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
        .end().then(() =>  {
 
-        //Highlighted text
-        hG = AnnWindow.append("g").attr("id","hG").attr("transform","translate(10,53)")
-
-          hG.append("text")
-            .text("...if ")
-
-           let posText = hG
-             .append("text")
-             .attr("dx",hG.node().getBBox().width + 3)
-             .text("positive")
-           posBbox = posText.node().getBBox();
-
-
-           hG.insert("rect","text").attr("id","posMask")
-            .attr("x",posBbox.x-5)
-            .attr("y",posBbox.y+6)
-            .attr("width",posBbox.width+10)
-            .attr("height",posBbox.height-10)
-            .attr("fill","white")
-
-           hG.insert("image","rect")
-            .attr("x",posBbox.x-5)
-            .attr("y",posBbox.y)
-            .attr("width",posBbox.width+10)
-            .attr("height",posBbox.height+2)
-            .attr("xlink:href", "GreenHighlight.png")
-
-           hG.append("text")
-            .text("/")
-            .attr("dx",hG.node().getBBox().width + 3)
-
-           let negText = hG
-             .append("text")
-             .text("negative").attr("id","negText")
-             .attr("dx",hG.node().getBBox().width+3)
-            negBbox = d3.select("#negText").node().getBBox();
-
-            hG.insert("rect","text").attr("id","negMask")
-             .attr("x",negBbox.x-5)
-             .attr("y",negBbox.y+6)
-             .attr("width",negBbox.width+10)
-             .attr("height",negBbox.height-10)
-             .attr("fill","white")
-
-            hG.insert("image","rect")
-             .attr("x",negBbox.x-5)
-             .attr("y",negBbox.y)
-             .attr("width",negBbox.width+10)
-             .attr("height",negBbox.height+2)
-             .attr("xlink:href", "RedHighlight.png")
-
-           hG.append("text")
-            .attr("dx",hG.node().getBBox().width + 3)
-            .text("deltas are clustered")
+          //Highlighted text
+          hG = AnnWindow.append("g").attr("id","hG").attr("transform","translate(10,53)")
 
             hG.append("text")
-             .attr("dy","0.9em")
-             .text("together ->  this suggests the existince of distinct segments in the trend")
-             .call(wrap,300)
+              .text("...if ")
 
-            setTimeout(function(){
-              d3.select("#posMask").transition().duration(500).attr("width",0).remove();
-            },1200)
-            setTimeout(function(){
-              d3.select("#negMask").transition().duration(500).attr("width",0).remove();
-              ready();
-            },2200)
+             let posText = hG
+               .append("text")
+               .attr("dx",hG.node().getBBox().width + 3)
+               .text("positive")
+             posBbox = posText.node().getBBox();
 
 
-       });
+             hG.insert("rect","text").attr("id","posMask")
+              .attr("x",posBbox.x-5)
+              .attr("y",posBbox.y+6)
+              .attr("width",posBbox.width+10)
+              .attr("height",posBbox.height-10)
+              .attr("fill","white")
+
+             hG.insert("image","rect")
+              .attr("x",posBbox.x-5)
+              .attr("y",posBbox.y)
+              .attr("width",posBbox.width+10)
+              .attr("height",posBbox.height+2)
+              .attr("xlink:href", "GreenHighlight.png")
+
+             hG.append("text")
+              .text("/")
+              .attr("dx",hG.node().getBBox().width + 3)
+
+             let negText = hG
+               .append("text")
+               .text("negative").attr("id","negText")
+               .attr("dx",hG.node().getBBox().width+3)
+              negBbox = d3.select("#negText").node().getBBox();
+
+              hG.insert("rect","text").attr("id","negMask")
+               .attr("x",negBbox.x-5)
+               .attr("y",negBbox.y+6)
+               .attr("width",negBbox.width+10)
+               .attr("height",negBbox.height-10)
+               .attr("fill","white")
+
+              hG.insert("image","rect")
+               .attr("x",negBbox.x-5)
+               .attr("y",negBbox.y)
+               .attr("width",negBbox.width+10)
+               .attr("height",negBbox.height+2)
+               .attr("xlink:href", "RedHighlight.png")
+
+             hG.append("text")
+              .attr("dx",hG.node().getBBox().width + 3)
+              .text("deltas are clustered")
+
+              hG.append("text")
+               .attr("dy","0.9em")
+               .text("together ->  this suggests the existince of distinct segments in the trend")
+               .call(wrap,300)
+
+              setTimeout(function(){
+                d3.select("#posMask").transition().ease(d3.easeExp).duration(1000).attr("width",0).remove();
+              },1200)
+              setTimeout(function(){
+                d3.select("#negMask").transition().ease(d3.easeExp).duration(1000).attr("width",0).remove();
+                ready();
+              },2200)
 
 
-  d3.select("#lineChartCont").append("button").attr("id","toggleBars")
-    .text("Toggle")
+          //Hide bars on hover
+          d3.select("#lineChart").on("mouseover", function(){
+            svg.selectAll("rect")
+            .transition()
+            .attr("height", 0)
+            .attr("y",yScale(mean))
+          })
 
-  toggleBars();
-}
+          d3.select("#lineChart").on("mouseout", function(){
+              svg.selectAll("rect")
+              .transition()
+              .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
+              .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
+            })
 
-toggleBars = function(){
-  d3.select("#toggleBars").on("click", function(){
-    svg.selectAll("rect")
-    .attr("fill-opacity", showBars ? 0 : 0.4)
+          d3.select("#lineChart").on("click", function(){
+            svg.selectAll("rect")
+            .attr("fill-opacity", showBars ? 0 : 0.4)
 
-    d3.select("#meanLine")
-    .attr("stroke-opacity", showBars ? 0 : 0.4)
+            d3.select("#meanLine")
+            .attr("stroke-opacity", showBars ? 0 : 0.4)
 
-    showBars =! showBars
-})}
+            showBars =! showBars
+          });
+
+        })
+      }
 
 
 animateWaterfall = function(data, scales){
 	let {xScale, yScale, yScaleCUSUM, yScaleCSMheight,xScaleCUSUM} = scales;
 
-  d3.select("#Ann1").transition().attr("opacity",0.3)
+  //d3.select("#Ann1").transition().attr("opacity",0.3)
 
 	rsData2 = []
 
@@ -901,13 +1013,11 @@ drawHisto = function(scales){
 
 
 shuffleData = function(data,scales){
-  d3.select("#Shuffle").on("click", function(){
+  d3.select("#ShuffleButton").on("click", function(){
     let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
 
-    this.blur();
     //First Shuffle: Extend Max Line
     if (shuffleCount === 0){
-
         //Extend Max Line
         cusumSvg.select("line")
       		.attr("x2",w*2)
@@ -1015,8 +1125,54 @@ shuffleData = function(data,scales){
       simCountNum.text(shuffleCount)
     }
 
-    if (shuffleCount == 5) {
-      d3.select("#annCont").append("button").attr("class","btn btn-info").attr("id","autoShuffle").text("auto-shuffle ▶");
+    //Show chart re-set button
+    if (shuffleCount == 3) {
+      buttonSize = 35
+
+      resetSvg = d3.select("#lineChartCont").append("svg").attr("id","resetButton")
+        .attr("viewBox","0 0 100 100")
+        .attr("width",buttonSize)
+        .attr("height",buttonSize)
+
+      resetCircle = resetSvg.append("path").attr("id","circle")
+        .attr("d",'M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30')
+        .attr("stroke","#a9a9a9").attr("stroke-width","7px")
+        .attr("fill","none")
+        lineTrans(resetCircle,1200,0)
+
+      resetArrow = resetSvg.append("polygon").attr("id","arrow")
+        .attr("points","5,50 35,50 20,70")
+        .attr("fill","#a9a9a9")
+
+      showOrigTrend(dict,scales);
+    }
+
+    //Show automateShuffle button
+    if (shuffleCount == 6) {
+      function shuffleButton2(){
+        ShuffleButton2 = buttonG.append("svg")
+          .attr("class","shuffle-button").attr("id","autoButton")
+          .attr("width", buttonWidth*1.3)
+          .attr("height",buttonHeight)
+        ShuffleButton2.append("text")
+          .attr("class","shuffle-text").attr("id","autoText")
+          .attr("x","50%")
+          .attr("y","50%")
+          .text("Auto-Shuffle")
+          .attr("text-anchor","middle")
+          .attr("dominant-baseline","middle")
+        ShuffleButton2.append("line")
+          .attr("x1",0)
+          .attr("x2",0)
+          .attr("y1",buttonHeight-1)
+          .attr("y2",buttonHeight-1)
+          .attr("stroke-width", 2)
+          .attr("stroke","black")
+          .transition().duration(1500)
+            .attr("x2",buttonWidth*1.3)
+      }
+      shuffleButton2();
+
       shuffleInterval(dict,scales);
     }
 
@@ -1031,16 +1187,16 @@ shuffleData = function(data,scales){
   }
 
 shuffleInterval = function(dict,scales){
-  d3.select("#autoShuffle").on("click", function(){
+  d3.select("#autoButton").on("click", function(){
     automate =! automate
     if (automate){
       inter = setInterval(function() {
         automateShuffle(dict,scales);
       }, 100);
-      d3.select(this).text("❚❚");
+      d3.select("#autoText").text("Pause");
     } else {
       clearInterval(inter);
-      d3.select(this).text("auto-shuffle ▶");
+      d3.select("#autoText").text("Auto-Shuffle");
     }
   })
 }
@@ -1113,7 +1269,7 @@ automateShuffle = function(data,scales){
 showOrigTrend = function(data,scales){
   let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
 
-  d3.select("#resetOrig").on("click",function(){
+  d3.select("#resetButton").on("click",function(){
     data = dict.sort(function(a,b){return a.key - b.key})
     generateRunningSum(data)
 
@@ -1163,7 +1319,6 @@ showData = function(){
   cusumHeights = [];
   cusumHeightsDict = [];
   drawHisto(scales);
-  showOrigTrend(dict,scales)
 }
 showData();
 
