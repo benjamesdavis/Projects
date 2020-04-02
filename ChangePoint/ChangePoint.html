@@ -77,11 +77,6 @@
         font-family: "Bitter";
         padding-bottom: 10px;
       }
-      #annCont {
-        margin-left: 20px;
-        height: 250px;
-        width: 400px;
-      }
       #AnnWindow, #pageNum{
         font-family: "Caveat";
         font-size: 22px;
@@ -109,8 +104,12 @@
         fill: url(#histoGrad);
       }
       #annCont {
+        margin-left: 20px;
+        height: 250px;
+        width: 400px;
         background: no-repeat left/100% 100% url('Paper.PNG');
         position: relative;
+        min-width: 400px;
       }
       @keyframes glowing {
         0% { fill: #dadada;  }
@@ -188,27 +187,41 @@
       }
       #arrow {
         transform-origin: 20px 55px;
+        transform: rotate(40deg);
+        offset-path:path('M27,30');
+        pointer-events: none;
+      }
+      #circle {
+        pointer-events: none;
+      }
+
+      @keyframes move {
+        100% {offset-distance: 100%;}
+      }
+      #resetButton:hover #arrow{
+        transform-origin: 20px 55px;
         transform: rotate(-85deg);
         offset-path: path('M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30');
         animation: move 1.2s linear forwards;
       }
-
-      @keyframes move {
-        100% {
-          offset-distance: 100%;
-        }
-      }
-      #resetButton:hover {
+      #resetButton:active {
         background-color: darkgrey;
       }
-      #resetButton:active {
-        background-color: dimgrey;
+      #resetButton:active #circle{
+        stroke: white;
       }
-      #resetButton:hover > #arrow{
+      #resetButton:active #arrow{
         fill: white;
       }
-      #resetButton:hover > #circle{
-        stroke: white;
+      #firstSimAnn {
+        white-space: pre;
+      }
+
+      #mainView {
+        position: relative;
+      }
+      #sketchyBox {
+        position: absolute;
       }
 
 
@@ -237,7 +250,7 @@
 	<button type="button" class="btn btn-primary" id="shuffleBatch" >start</button>
 </div>-->
   <div id="mainView" class = "canvas">
-      <div id="title">ChangePoint Analysis</div>
+      <div id="title">An Intro to ChangePoint Analysis</div>
       <div id="topView" class = "subdiv">
         <div id="lineChartCont" class = "canvas"></div>
         <div id="annCont"></div>
@@ -316,17 +329,23 @@ var histoGradient = histoSVG.append("linearGradient").attr("id","histoGrad").att
 
 
 //let ToggleBars = d3.select("#showBars")
-let lineTrans = function(chart,duration,delay){
+let lineTrans = function(chart,duration,delay,easement){
+  easement = easement || d3.easeLinear
   let lineLength =  function(chart){return chart.node().getTotalLength();}
   chart.attr("stroke-dasharray",0+" "+lineLength(chart))
       .transition()
       .duration(duration)
       .delay(delay)
-      .ease(d3.easeLinear)
+      .ease(easement)
       .attr("stroke-dasharray",lineLength(chart)+" "+lineLength(chart))
 }
 let showBars = true
 let automate = false
+
+// d3.select("#mainView").append("svg").attr("id","confAnn")
+//   .append("text").text("hello")
+//   .attr("alignment-baseline","hanging")
+
 
 
 function wrap(text, width) {
@@ -350,9 +369,6 @@ function wrap(text, width) {
     }
   });
 }
-
-
-
 
 
 dataGeneration = function(){
@@ -491,8 +507,9 @@ function ready(){
   d3.select("#nextOverlay").attr("class",null)
 }
 
-step = 1
+
 stepSequencer = function(dict,scales){
+  step = 1
   d3.select("#nextOverlay").on("click",function(){
 
     if (step == 1){
@@ -549,7 +566,7 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 5){
         AnnWindow.append("text").attr("class","ann3")
-          .text("How can we tell whether this segmentation is convincing enough to declare a change-point?")
+          .text("How can we tell whether the magnitude of change is convincing enough to declare a change in trend?")
           .attr("dy","4em")
           .call(wrap,300)
         step = 6;
@@ -618,7 +635,7 @@ drawMeanLine = function(dict,scales){
     .transition().duration(1500)
     .attr("x2",w)
     .on("end",function(){
-        setTimeout(function(){drawBars(dict,scales)},500);
+        drawBars(dict,scales);
       })
 
 }
@@ -926,8 +943,6 @@ cusumMax = function(scales){
 }
 
 
-
-
 drawHisto = function(scales){
   let {yScaleCUSUM} = scales;
 
@@ -990,7 +1005,7 @@ drawHisto = function(scales){
    .attr("dx","-0.3em");
 
  hitRateLab = hitRate.append("text").attr("class","lab-text")
-  .text("Hit Rate")
+  .text("Confidence")
   .attr("text-anchor","middle")
   .attr("dx","-0.3em");
 
@@ -1010,11 +1025,12 @@ drawHisto = function(scales){
 }
 
 
-
-
 shuffleData = function(data,scales){
   d3.select("#ShuffleButton").on("click", function(){
     let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
+
+    d3.select("#arrow").attr("opacity","1");
+    d3.select("#circle").attr("opacity","1");
 
     //First Shuffle: Extend Max Line
     if (shuffleCount === 0){
@@ -1071,18 +1087,65 @@ shuffleData = function(data,scales){
       .attr("y",  yScaleCUSUM(rsMax))
       .attr("height", h - yScaleCUSUM(rsMax))
 
+
+  //First shuffle annotation
+    if (shuffleCount == 0) {
+      shuffleAnnG = cusumSvg.append("g")
+        .attr("transform","translate("+(w+10)+","+yScaleCUSUM(rsMax)+")")
+        .attr("class","lab-text").style("font-size",14)
+
+      shuffleAnnText = shuffleAnnG
+          .append("text")
+          //.attr("alignment-baseline","hanging")
+          .attr("id","firstSimAnn")
+
+      shuffleAnnText
+          .append("tspan")
+          .attr("x",0)
+          .attr("dy","1em")
+          .text("The shuffled trend has a    ")
+
+      shuffleAnnText.append("tspan").text("lower").attr("id","lower")
+
+      shuffleAnnG.insert("rect","text").attr("id","lowerRect")
+      .attr("x", d3.select("#lower").node().getExtentOfChar(0).x-6)
+      .attr("y",d3.select("#lower").node().getExtentOfChar(0).y)
+      .attr("width",d3.select("#lower").node().getComputedTextLength()+10)
+      .attr("height",d3.select("#lower").node().getExtentOfChar(0).height)
+      .attr("rx",5)
+      .attr("fill",d3.rgb("#233240"))
+
+      shuffleAnnText.append("tspan").text("   change-point")
+      shuffleAnnText.append("tspan")
+      .attr("x",0)
+      .attr("dy","1em")
+      .text("score than our original trend.")
+
+      shuffleAnnText
+        .append("tspan")
+        //.attr("x",0)
+        .attr("dy","2em")
+        .text("Keep shufflin' to build up a distribution of simulation scores.")
+        .call(wrap,300)
+        .attr("opacity",0)
+        .transition().duration(1000).delay(2000)
+        .attr("opacity",1)
+
+    }
+
     //Update CUSUM Height Bars
     if (shuffleCount > 0) {
+      shuffleAnnG.remove();
 
-      //If fewer than 100 bars, scale to data length, else limit to 100
+      //If fewer than 100 bars, scale to data length, else limit to 50
       xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
 
-      //If fewer than 100 values, take all values, else limit to last 100
-  	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
+      //If fewer than 100 values, take all values, else limit to last 50
+  	  last50 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
 
       cusumHeightBars = d3.select("#cusumHeightBars")
           .selectAll("rect")
-          .data(last100, key = d => d.key)
+          .data(last50, key = d => d.key)
 
   	  cusumHeightBars.enter()
   		  .append("rect")
@@ -1105,7 +1168,7 @@ shuffleData = function(data,scales){
   		 .attr("transform","translate("+w+",0)")
   		 .remove()
 
-       hitRate = d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100
+       hitRate = 100 - (d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100)
        hitRate = hitRate.toFixed(1)+"%"
        hitRateNum.text(hitRate)
 
@@ -1123,6 +1186,7 @@ shuffleData = function(data,scales){
            .attr("width", function(d){return histoX(d.length);})
 
       simCountNum.text(shuffleCount)
+
     }
 
     //Show chart re-set button
@@ -1138,7 +1202,16 @@ shuffleData = function(data,scales){
         .attr("d",'M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30')
         .attr("stroke","#a9a9a9").attr("stroke-width","7px")
         .attr("fill","none")
+
+      resetSvg.on("mouseover",function(){
+        d3.select("#circle")
         lineTrans(resetCircle,1200,0)
+      })
+      resetSvg.on("mouseout",function(){
+        d3.select("#circle")
+        lineTrans(resetCircle,0,0)
+      })
+
 
       resetArrow = resetSvg.append("polygon").attr("id","arrow")
         .attr("points","5,50 35,50 20,70")
@@ -1192,6 +1265,7 @@ shuffleInterval = function(dict,scales){
     if (automate){
       inter = setInterval(function() {
         automateShuffle(dict,scales);
+        ;
       }, 100);
       d3.select("#autoText").text("Pause");
     } else {
@@ -1213,16 +1287,15 @@ automateShuffle = function(data,scales){
 		cusumHeights.push(rsMax)
     cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
 
-    //If fewer than 100 values, take all values, else limit to last 100
-	  last100 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
-
-    //If fewer than 100 bars, scale to data length, else limit to 100
+    //If fewer than 50 values, take all values, else limit to last 50
+	  last50 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
+    //If fewer than 50 bars, scale to data length, else limit to 50
     xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
 
 
       cusumHeightBars = d3.select("#cusumHeightBars")
           .selectAll("rect")
-          .data(last100, key = d => d.key)
+          .data(last50, key = d => d.key)
 
 
       cusumHeightBars.enter()
@@ -1260,7 +1333,7 @@ automateShuffle = function(data,scales){
         //  .on("end",function(){automateShuffle(dict,scales)})
 
       simCountNum.text(shuffleCount)
-      hitRate = d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100
+      hitRate = 100 - (d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100)
       hitRate = hitRate.toFixed(1)+"%"
       hitRateNum.text(hitRate)
 
@@ -1270,6 +1343,9 @@ showOrigTrend = function(data,scales){
   let {xScale,yScale,yScaleCUSUM,yScaleCSMheight,xScaleCUSUM} = scales;
 
   d3.select("#resetButton").on("click",function(){
+    d3.select("#arrow").attr("opacity","0.3");
+    d3.select("#circle").attr("opacity","0.3");
+
     data = dict.sort(function(a,b){return a.key - b.key})
     generateRunningSum(data)
 
@@ -1311,6 +1387,75 @@ showOrigTrend = function(data,scales){
   })
 }
 
+
+//histoBox = d3.select("#histoChart").node().getClientRects()[0]
+//circleCentre = [histoBox.x + histoBox.width/2, histoBox.y]
+
+// function sketchyAnn(circleCentre,circleSize){
+//
+//
+//   radius = circleSize/2.3
+//
+//   sketchyBox = d3.select("#mainView").append("svg").attr("id","sketchyBox")
+//   .attr("width",circleSize*3).attr("height",circleSize*2)
+//   .style("left",histoBox.x)
+//   .style("top",histoBox.y - (histoBox.height/3))
+//
+//
+//
+//   var r = radius, c = circleCentre, w = 1, fillColor = "red", strokeColor = "black";
+//
+//   r = r*1.5;
+//   //divide width by two to get the offset
+//   var z = w /2;
+//   var gCirclePoints = [];
+//   gCirclePoints.push([c[0],c[1] + r - (r * .25)]);
+//   gCirclePoints.push([c[0] + (r + (z * .375)) * .3,c[1] + (r - (r * 0.3)) * .9]);
+//   gCirclePoints.push([c[0] + (r * .9) + (z * .375),c[1] - (r * .1)]);
+//   gCirclePoints.push([c[0],c[1] - (r * 1) - (z * .5)]);
+//   gCirclePoints.push([c[0] - (r * .9) - (z * .35),c[1] - (r * .1)]);
+//   gCirclePoints.push([c[0] - (r + (z * .95)) * .4,c[1] + (r - (r * .25)) * .9]);
+//   gCirclePoints.push([c[0],c[1] + (r * .9) + (z) - (r * .2)]);
+//   gCirclePoints.push([c[0],c[1] + (r * .9) - (z) - (r * .25)]);
+//
+//
+//   sketchyC = d3.line()
+//     .x(function(d,i){return d[0]})
+//     .y(function(d) {return d[1]})
+//     .curve(d3.curveBasis)
+//
+//   sketchyBox.append("path").attr("id","sketchPath")
+//     .attr("d",sketchyC(gCirclePoints))
+//     .style("stroke", "black")
+//     .style("stroke-width",0.8)
+//     .style("fill", "none")
+//
+//   lineTrans(d3.select("#sketchPath"),1500,0,d3.easeExp)
+//
+//
+//   var gLinePoints = [
+//     [(circleCentre[0]) + circleSize/2.2 * Math.cos(30 * (Math.PI/180)),
+//      (circleCentre[1]) - circleSize/2.2 * Math.sin(30 * (Math.PI/180))]
+//      ,
+//     [(circleCentre[0]) + circleSize/1.5 * Math.cos(30 * (Math.PI/180)),
+//      (circleCentre[1]) - circleSize/1.5 * Math.sin(30 * (Math.PI/180))]
+//      ,
+//     [(circleCentre[0])  + circleSize * Math.cos(22 * (Math.PI/180)),
+//      (circleCentre[0])  - circleSize * Math.sin(22 * (Math.PI/180))]
+//   ];
+//
+//
+//   sketchyBox.append("path").attr("id","sketchLine")
+//     .attr("d",sketchyC(gLinePoints))
+//     .style("stroke", "black")
+//     .style("stroke-width",0.8)
+//     .style("fill", "none")
+//
+//   lineTrans(d3.select("#sketchLine"),700,1000,d3.easeExp)
+//
+// }
+//
+// sketchyAnn([65,100],150)
 
 showData = function(){
   dataGeneration();
