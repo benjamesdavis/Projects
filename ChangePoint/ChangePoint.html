@@ -140,9 +140,10 @@
       #toggleBars {
         position: absolute; right:5; top:5;
       }
-      #callout {
+      .callout {
         font-family: "Caveat";
         font-size: 20px;
+        font-weight: 100;
       }
       .shuffle-button {
         background: linear-gradient(to left, rgba(0,0,0,0) 50%, rgba(230, 242, 255,1) 50%);
@@ -202,7 +203,7 @@
         transform-origin: 20px 55px;
         transform: rotate(-85deg);
         offset-path: path('M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30');
-        animation: move 1.2s linear forwards;
+        animation: move 0.7s linear forwards;
       }
       #resetButton:active {
         background-color: darkgrey;
@@ -220,8 +221,47 @@
       #mainView {
         position: relative;
       }
-      #sketchyBox {
+      .speech-box{
         position: absolute;
+        padding: 13px;
+        margin-left: 20px;
+        margin-top: -10px;
+        background: #F7F8F9;
+        border-radius: 10px;
+        width: 300px;
+        line-height: 100%;
+        font-family: Bitter;
+        font-size: 13;
+        color: #78909c;
+        box-shadow: 2px 2px 6px black;
+      }
+      .sb1::before  {
+        content: " ";
+        width: 0px;
+        height: 0px;
+        position: absolute;
+        border-right: 20px solid #F7F8F9;
+        border-top: 7px solid transparent;
+        border-bottom: 7px solid transparent;
+        left: -20px;
+        top: 50%;
+        margin-top: -10px
+      }
+      .sb2::before  {
+        content: " ";
+        width: 0px;
+        height: 0px;
+        position: absolute;
+        border-left: 20px solid #F7F8F9;
+        border-top: 7px solid transparent;
+        border-bottom: 7px solid transparent;
+        right: -20px;
+        top: 50%;
+        margin-top: -10px
+      }
+      .lower-higher {
+       background-color: #2c3e50;
+       color: #78909c;
       }
 
 
@@ -327,6 +367,8 @@ var histoGradient = histoSVG.append("linearGradient").attr("id","histoGrad").att
   histoGradient.append('stop').attr('stop-color', d3.rgb("#2c3e50")).attr('offset', '84%');
   histoGradient.append('stop').attr('stop-color', d3.rgb("#d9d9db")).attr('offset', '16%');
 
+speechPointOffset = 3
+
 
 //let ToggleBars = d3.select("#showBars")
 let lineTrans = function(chart,duration,delay,easement){
@@ -342,10 +384,6 @@ let lineTrans = function(chart,duration,delay,easement){
 let showBars = true
 let automate = false
 
-// d3.select("#mainView").append("svg").attr("id","confAnn")
-//   .append("text").text("hello")
-//   .attr("alignment-baseline","hanging")
-
 
 
 function wrap(text, width) {
@@ -354,7 +392,7 @@ function wrap(text, width) {
         words = text.text().split(/\s+/).reverse(),
         word,
         line = [],
-        y = text.attr("y"),
+        y = [],
         dy = parseFloat(text.attr("dy")),
         tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
     while (word = words.pop()) {
@@ -534,7 +572,7 @@ stepSequencer = function(dict,scales){
       AnnWindow.append("text").attr("class","ann2")
         .text("But how can we quantify and test this effect?")
         //.attr("y",AnnWindow.node().getBBox().height)
-        .attr("dy","6.2em")
+        .attr("dy","6.5m)( 87C65em")
         .call(wrap,300)
         .transition().duration(800)
         .attr("opacity",1);
@@ -574,7 +612,7 @@ stepSequencer = function(dict,scales){
     } else if (step == 6){
 
       d3.selectAll(".ann3").remove();
-      d3.select("#cusumMaxAnn").remove();
+      d3.select("#speechDiv").remove();
       PageNum.select("text").text("4");
 
       AnnWindow.append("text").attr("class","ann4")
@@ -781,10 +819,8 @@ animateWaterfall = function(data, scales){
   //Annotation Callout Value
   cusumPeak = rsData.slice().sort((a, b) => d3.descending(a.end, b.end))
 
-
   //Cycle through updateData until all data points are rendered
   let duration = 120
-
 
 
   function pollDOM(){
@@ -795,7 +831,8 @@ animateWaterfall = function(data, scales){
       setTimeout(function(){
         pollDOM();
         d3.select("#callout").remove();
-      },4000);
+        d3.select("#speechDiv").remove();
+      },6000);
     //if final point, trigger max line
     } else if (clickCount === rsData.length) {
       cusumMax(scales);
@@ -814,11 +851,12 @@ animateWaterfall = function(data, scales){
         highestValue = yScaleCUSUM(cusumPeak[0].end)
         highestIndex = xScaleCUSUM(cusumPeak[0].key)
 
+
         //Features of the annotation
         const annotations = [{
-            note: {label: "If positve (or negative) deltas are clustered together, the curve will gain momentum, and grow taller", wrap:280},
+            note: {label: "", wrap:200},
             x: highestIndex, y: highestValue,
-            dy: 50, dx: 50,
+            dy: -40, dx: 100,
             subject: {radius: 35}
         }]
 
@@ -831,6 +869,18 @@ animateWaterfall = function(data, scales){
           .append("g").attr("id","callout")
           .call(makeAnnotations);
 
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box")
+          .style("left",d3.select("#cusumView").node().offsetLeft + xScaleCUSUM(cusumPeak[0].key) + 50)
+          .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(cusumPeak[0].end) - 30)
+          .append("span").text("If ")
+        speech.append("span").text("positve").style("background-color","#93c47d").style("color","#e9ecef")
+        speech.append("span").text(" or ")
+          .append("span").text("negative").style("background-color","#e06666").style("color","#e9ecef")
+        speech.append("span").text(" deltas are clustered together, the curve will gain momentum, and grow taller")
+
+        d3.select("#speechDiv")
+        .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
 
       };
 
@@ -879,31 +929,41 @@ cusumMax = function(scales){
   origHeight2 = rsMax - rsMin
 
   function cusumMaxAnn(){
+
+    speech = d3.select("#mainView")
+      .append("div").attr("id","speechDiv").attr("class","speech-box sb1")
+      .style("left",d3.select("#cusumView").node().offsetLeft + w)
+      .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
+      .append("span").text("The resulting curve height reflects the strength of the change-point effect, and becomes our test statistic")
+
+    d3.select("#speechDiv")
+    .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
         //Features of the annotation
-        const annotations = [{
-            note: {label: "The resulting curve height reflects the strength of the change-point effect, and becomes our test statistic", wrap:240},
-            x: w, y: yScaleCUSUM(rsMax),
-            dy: -20, dx: 20,
-        }]
-
-        //Add annotation to the Chart
-        const makeAnnotations = d3.annotation()
-          //.editMode(true)
-          .type(d3.annotationCalloutElbow)
-          .annotations(annotations)
-        d3.select("#cusumSvg")
-          .append("g").attr("id","cusumMaxAnn")
-          .call(makeAnnotations);
-
-        AnnConnector = d3.select("#cusumMaxAnn").selectAll(".connector")
-        NoteLine = d3.select("#cusumMaxAnn").selectAll(".note-line")
-        AnnText = d3.select("#cusumMaxAnn").selectAll(".annotation-note-label")
-        lineTrans(AnnConnector,400,0)
-        lineTrans(NoteLine,1000,400)
-        AnnText.attr("opacity",0)
-          .transition().delay(1200)
-          .duration(500)
-          .attr("opacity",1)
+        // const annotations = [{
+        //     note: {label: "The resulting curve height reflects the strength of the change-point effect, and becomes our test statistic", wrap:240},
+        //     x: w, y: yScaleCUSUM(rsMax),
+        //     dy: -20, dx: 20,
+        // }]
+        //
+        // // //Add annotation to the Chart
+        // // const makeAnnotations = d3.annotation()
+        // //   //.editMode(true)
+        // //   .type(d3.annotationCalloutElbow)
+        // //   .annotations(annotations)
+        // // d3.select("#cusumSvg")
+        // //   .append("g").attr("id","cusumMaxAnn")
+        // //   .call(makeAnnotations);
+        // //
+        // // AnnConnector = d3.select("#cusumMaxAnn").selectAll(".connector")
+        // // NoteLine = d3.select("#cusumMaxAnn").selectAll(".note-line")
+        // // AnnText = d3.select("#cusumMaxAnn").selectAll(".annotation-note-label")
+        // // lineTrans(AnnConnector,400,0)
+        // // lineTrans(NoteLine,1000,400)
+        // // AnnText.attr("opacity",0)
+        // //   .transition().delay(1200)
+        // //   .duration(500)
+        // //   .attr("opacity",1)
 
   }
 
@@ -1088,54 +1148,35 @@ shuffleData = function(data,scales){
       .attr("height", h - yScaleCUSUM(rsMax))
 
 
-  //First shuffle annotation
+    //First shuffle annotation
     if (shuffleCount == 0) {
-      shuffleAnnG = cusumSvg.append("g")
-        .attr("transform","translate("+(w+10)+","+yScaleCUSUM(rsMax)+")")
-        .attr("class","lab-text").style("font-size",14)
 
-      shuffleAnnText = shuffleAnnG
-          .append("text")
-          //.attr("alignment-baseline","hanging")
-          .attr("id","firstSimAnn")
+      setTimeout(function(){
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box sb1")
+          .style("left",w+20).style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
+          .append("span")
+          .text("The shuffled trend has a ")
 
-      shuffleAnnText
-          .append("tspan")
-          .attr("x",0)
-          .attr("dy","1em")
-          .text("The shuffled trend has a    ")
+          speech.append("mark").text("lower").attr("class","lower-higher")
 
-      shuffleAnnText.append("tspan").text("lower").attr("id","lower")
+          speech.append("span")
+            .text(" score than the original trend.")
 
-      shuffleAnnG.insert("rect","text").attr("id","lowerRect")
-      .attr("x", d3.select("#lower").node().getExtentOfChar(0).x-6)
-      .attr("y",d3.select("#lower").node().getExtentOfChar(0).y)
-      .attr("width",d3.select("#lower").node().getComputedTextLength()+10)
-      .attr("height",d3.select("#lower").node().getExtentOfChar(0).height)
-      .attr("rx",5)
-      .attr("fill",d3.rgb("#233240"))
+          speech.append("br")
+          speech.append("br")
 
-      shuffleAnnText.append("tspan").text("   change-point")
-      shuffleAnnText.append("tspan")
-      .attr("x",0)
-      .attr("dy","1em")
-      .text("score than our original trend.")
+          speech.append("span").text("Keep shufflin' to build up a distribution of simulation scores")
 
-      shuffleAnnText
-        .append("tspan")
-        //.attr("x",0)
-        .attr("dy","2em")
-        .text("Keep shufflin' to build up a distribution of simulation scores.")
-        .call(wrap,300)
-        .attr("opacity",0)
-        .transition().duration(1000).delay(2000)
-        .attr("opacity",1)
+          d3.select("#speechDiv")
+          .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
 
+      },1000)
     }
 
     //Update CUSUM Height Bars
     if (shuffleCount > 0) {
-      shuffleAnnG.remove();
+      d3.select("#speechDiv").remove();
 
       //If fewer than 100 bars, scale to data length, else limit to 50
       xScaleCusumHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
@@ -1191,7 +1232,7 @@ shuffleData = function(data,scales){
 
     //Show chart re-set button
     if (shuffleCount == 3) {
-      buttonSize = 35
+      buttonSize = 30
 
       resetSvg = d3.select("#lineChartCont").append("svg").attr("id","resetButton")
         .attr("viewBox","0 0 100 100")
@@ -1205,7 +1246,7 @@ shuffleData = function(data,scales){
 
       resetSvg.on("mouseover",function(){
         d3.select("#circle")
-        lineTrans(resetCircle,1200,0)
+        lineTrans(resetCircle,700,0)
       })
       resetSvg.on("mouseout",function(){
         d3.select("#circle")
@@ -1218,6 +1259,24 @@ shuffleData = function(data,scales){
         .attr("fill","#a9a9a9")
 
       showOrigTrend(dict,scales);
+    }
+
+    //Show Confidence annotation
+    if (shuffleCount == 5) {
+      speech = d3.select("#mainView")
+        .append("div").attr("id","speechDiv").attr("class","speech-box sb2")
+        .style("left",d3.select("#cusumView").node().offsetLeft + w*2 - 300 - 20 + 10 - 5) //300 = SpeechBubble width; 20 = ArrowWidth; 10 = HistoMargin; 5 = Additional Spacing
+        .style("top",d3.select("#histoChart").node().offsetTop + speechPointOffset + 20) //20 = manual vertical positioning
+        .append("span").text("If >95% of the simulations have a lower score than the original trend, then we can be confident of a change-point...")
+      // speech.append("br")
+      // speech.append("br")
+      setTimeout(function(){
+        speech.text("However, to make this call, a couple of 1000 more simulations are needed, to approximate the full distribution of potential scores.")
+      },4000)
+
+
+      d3.select("#speechDiv")
+      .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
     }
 
     //Show automateShuffle button
@@ -1388,74 +1447,8 @@ showOrigTrend = function(data,scales){
 }
 
 
-//histoBox = d3.select("#histoChart").node().getClientRects()[0]
-//circleCentre = [histoBox.x + histoBox.width/2, histoBox.y]
 
-// function sketchyAnn(circleCentre,circleSize){
-//
-//
-//   radius = circleSize/2.3
-//
-//   sketchyBox = d3.select("#mainView").append("svg").attr("id","sketchyBox")
-//   .attr("width",circleSize*3).attr("height",circleSize*2)
-//   .style("left",histoBox.x)
-//   .style("top",histoBox.y - (histoBox.height/3))
-//
-//
-//
-//   var r = radius, c = circleCentre, w = 1, fillColor = "red", strokeColor = "black";
-//
-//   r = r*1.5;
-//   //divide width by two to get the offset
-//   var z = w /2;
-//   var gCirclePoints = [];
-//   gCirclePoints.push([c[0],c[1] + r - (r * .25)]);
-//   gCirclePoints.push([c[0] + (r + (z * .375)) * .3,c[1] + (r - (r * 0.3)) * .9]);
-//   gCirclePoints.push([c[0] + (r * .9) + (z * .375),c[1] - (r * .1)]);
-//   gCirclePoints.push([c[0],c[1] - (r * 1) - (z * .5)]);
-//   gCirclePoints.push([c[0] - (r * .9) - (z * .35),c[1] - (r * .1)]);
-//   gCirclePoints.push([c[0] - (r + (z * .95)) * .4,c[1] + (r - (r * .25)) * .9]);
-//   gCirclePoints.push([c[0],c[1] + (r * .9) + (z) - (r * .2)]);
-//   gCirclePoints.push([c[0],c[1] + (r * .9) - (z) - (r * .25)]);
-//
-//
-//   sketchyC = d3.line()
-//     .x(function(d,i){return d[0]})
-//     .y(function(d) {return d[1]})
-//     .curve(d3.curveBasis)
-//
-//   sketchyBox.append("path").attr("id","sketchPath")
-//     .attr("d",sketchyC(gCirclePoints))
-//     .style("stroke", "black")
-//     .style("stroke-width",0.8)
-//     .style("fill", "none")
-//
-//   lineTrans(d3.select("#sketchPath"),1500,0,d3.easeExp)
-//
-//
-//   var gLinePoints = [
-//     [(circleCentre[0]) + circleSize/2.2 * Math.cos(30 * (Math.PI/180)),
-//      (circleCentre[1]) - circleSize/2.2 * Math.sin(30 * (Math.PI/180))]
-//      ,
-//     [(circleCentre[0]) + circleSize/1.5 * Math.cos(30 * (Math.PI/180)),
-//      (circleCentre[1]) - circleSize/1.5 * Math.sin(30 * (Math.PI/180))]
-//      ,
-//     [(circleCentre[0])  + circleSize * Math.cos(22 * (Math.PI/180)),
-//      (circleCentre[0])  - circleSize * Math.sin(22 * (Math.PI/180))]
-//   ];
-//
-//
-//   sketchyBox.append("path").attr("id","sketchLine")
-//     .attr("d",sketchyC(gLinePoints))
-//     .style("stroke", "black")
-//     .style("stroke-width",0.8)
-//     .style("fill", "none")
-//
-//   lineTrans(d3.select("#sketchLine"),700,1000,d3.easeExp)
-//
-// }
-//
-// sketchyAnn([65,100],150)
+
 
 showData = function(){
   dataGeneration();
