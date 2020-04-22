@@ -61,7 +61,7 @@
         font-family: "Bitter"
       }
       .subject,.note-line,.connector {
-        stroke: white;
+        /* stroke: white; */
         stroke-width: 1.2px;
       }
       #mainView {
@@ -263,6 +263,22 @@
        background-color: #2c3e50;
        color: #78909c;
       }
+      .segment-lab {
+        font-family: Bitter;
+        font-size: 13;
+        fill: #474747;
+      }
+      #baseSVG {
+        position: relative;
+        z-index: 1
+      }
+      #lineChart{
+        position: absolute;
+      }
+      #barOverlay{
+        position: absolute;
+          z-index: 10
+      }
 
 
 
@@ -322,7 +338,7 @@ let lineWidth = w - lineMargin.left - lineMargin.right,
     lineHeight = h - lineMargin.top - lineMargin.bottom;
 
 
-let baseSvg = d3.select("#lineChartCont").append("svg").attr("width",w).attr("height",h)
+let baseSvg = d3.select("#lineChartCont").append("svg").attr("width",w).attr("height",h).attr("id","baseSVG")
 let svg = baseSvg.append("svg").attr("id","lineChart")
   .attr("y",lineMargin.top)
   .attr("width", w)
@@ -484,7 +500,7 @@ drawLine = function(data,scales){
     .y(d => yScale(d))
 
 
-  let line = svg.append("g").attr("id","RL").append("path")
+  line = svg.append("g").attr("id","RL").append("path")
           .datum(data)
           .attr("d", valueline)
           .attr("class","line")
@@ -584,7 +600,7 @@ stepSequencer = function(dict,scales){
       AnnWindow
         .append("text").attr("class","ann3")
         .attr("text-anchor","left")
-        .text("If we plot the running sum of deltas, we get a curve describing the extent of segmentation - and by extension, magnitude of change - within the trend")
+        .text("By plotting the cumulative sum of deltas, we can translate sustained sequences of elevated/lowered activity into a curve.")
         .attr("dy","1em")
         .call(wrap,300);
 
@@ -601,7 +617,7 @@ stepSequencer = function(dict,scales){
 
     } else if (step == 5){
         AnnWindow.append("text").attr("class","ann3")
-          .text("The change-point score alone, doesn't tell us whether a change took place. We need context.")
+          .text("The change-point score alone doesn't tell us if the change is real or not. To infer this, we need to ask: could a score this high have simply have resulted from chance orderings of data points (i.e. was it a fluke)?")
           .attr("dy","4.8em")
           .call(wrap,300)
         step = 6;
@@ -613,7 +629,7 @@ stepSequencer = function(dict,scales){
       PageNum.select("text").text("4");
 
       AnnWindow.append("text").attr("class","ann4")
-        .text("We can simulate chance by repeatedly shuffling the order of data points in the trend")
+        .text("We can simulate the range of scores expected by chance alone, by repeatedly shuffling the order of points.")
         .attr("dy","1em")
         .call(wrap,300)
        step = 7;
@@ -761,7 +777,7 @@ drawBars = function(data,scales){
 
             //
             hG.append("text")
-            .text("this suggests the existence of")
+            .text("this suggests a shift in the")
             .attr("dx",d3.select("#together").node().getBBox().width +3)
             .attr("dy","0.9em")
             .attr("opacity",0)
@@ -769,7 +785,7 @@ drawBars = function(data,scales){
             .attr("opacity",1)
 
             hG.append("text")
-            .text("distinct segments, with values consistently above/below the rest of the trend")
+            .text("behaviour of the trend, between distinct segments with differet local averages")
             .attr("dy","1.8em")
             .call(wrap,300)
             .attr("opacity",0)
@@ -778,21 +794,23 @@ drawBars = function(data,scales){
             //
 
           //Hide bars on hover
-          d3.select("#lineChart").on("mouseover", function(){
+          barOverlay = d3.select("#lineChartCont").append("svg").attr("id","barOverlay").attr("width",400).attr("height",lineHeight).attr("x",0).attr("y",lineMargin.top)
+
+          barOverlay.on("mouseover", function(){
             svg.selectAll("rect")
             .transition()
             .attr("height", 0)
             .attr("y",yScale(mean))
           })
 
-          d3.select("#lineChart").on("mouseout", function(){
+          barOverlay.on("mouseout", function(){
               svg.selectAll("rect")
               .transition()
               .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
               .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
             })
 
-          d3.select("#lineChart").on("click", function(){
+          barOverlay.on("click", function(){
             svg.selectAll("rect")
             .attr("fill-opacity", showBars ? 0 : 0.4)
             d3.select("#meanLine")
@@ -840,15 +858,7 @@ animateWaterfall = function(data, scales){
         d3.select("#callout").remove();
         d3.select("#speechDiv").remove();
       },6000);
-    // } else if (clickCount === neuIndex) {
-    //   addDelta();
-    //   setTimeout(Callout2,100);
-    //   setTimeout(function(){
-    //     pollDOM();
-    //     d3.select("#callout").remove();
-    //     d3.select("#speechDiv").remove();
-    //   },6000);
-  } else if (clickCount === negIndex+1) {
+    } else if (clickCount === negIndex+1) {
       addDelta();
       setTimeout(Callout3,100);
       setTimeout(function(){
@@ -878,7 +888,8 @@ animateWaterfall = function(data, scales){
             note: {label: "", wrap:200},
             x: highestIndex, y: highestValue,
             dy: -40, dx: 100,
-            subject: {radius: 35}
+            subject: {radius: 35},
+            color: "white"
         }]
 
         //Add annotation to the Chart
@@ -896,8 +907,6 @@ animateWaterfall = function(data, scales){
           .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(cusumPeak[0].end) - 30)
           .append("span").text("Where values are consistently above average, the net accumulation of ")
         speech.append("span").text("positive").style("background-color","#93c47d").style("color","#e9ecef")
-        // speech.append("span").text(" or ")
-        //   .append("span").text("negative").style("background-color","#e06666").style("color","#e9ecef")
         speech.append("span").text(" deltas drives the slope upwards")
 
         d3.select("#speechDiv")
@@ -915,7 +924,8 @@ animateWaterfall = function(data, scales){
             note: {label: "", wrap:200},
             x: highestIndex, y: highestValue,
             dy: -40, dx: 100,
-            subject: {radius: 35}
+            subject: {radius: 35},
+            color: "white"
         }]
 
         //Add annotation to the Chart
@@ -952,7 +962,8 @@ animateWaterfall = function(data, scales){
             note: {label: "", wrap:200},
             x: highestIndex, y: highestValue,
             dy: -40, dx: 100,
-            subject: {radius: 35}
+            subject: {radius: 35},
+            color: "white"
         }]
 
         //Add annotation to the Chart
@@ -1044,7 +1055,7 @@ cusumMax = function(scales){
       .append("div").attr("id","speechDiv").attr("class","speech-box sb1")
       .style("left",d3.select("#cusumView").node().offsetLeft + w)
       .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
-      .append("span").text("The more pronounced the segmentation, the higher the curve will grow.")
+      .append("span").text("The more pronounced the segments, the higher the curve 📈 will grow.")
     speech.append("br")
     speech.append("br")
     speech.append("span").text("..And the resulting curve height is taken as our change-point score...")
@@ -1239,9 +1250,9 @@ shuffleData = function(data,scales){
           .style("left",w+20).style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
           .append("span")
           .text("The shuffled trend has a ")
-          speech.append("span").text(higherLower).attr("class","lower-higher")
-          speech.append("span").text(" score than the original trend ")
-          speech.append("span").text(`(${Math.round(rsMax*10)/10})`).style("font-weight",900)
+          speech.append("span").text(higherLower) //.attr("class","lower-higher")
+          speech.append("span").text(" score than the original trend")
+          //speech.append("span").text(`(${Math.round(rsMax*10)/10})`).style("font-weight",900)
           speech.append("br")
           speech.append("br")
           speech.append("span").text("Keep shufflin' to build up a distribution of simulation scores")
@@ -1398,24 +1409,46 @@ shuffleData = function(data,scales){
   }
 
 shuffleInterval = function(dict,scales){
-  shuffleSpeed = 50; sampleSize = 100;
 
-  d3.select("#autoButton").on("click", function(){
-    automate =! automate
 
-    if (automate){
-      resetOrig();
-      inter = setInterval(function() {
-        automateShuffle(dict,scales);
-        if (shuffleCount == sampleSize) {clearInterval(inter);cpLine(dict,scales);};
-      }, shuffleSpeed);
-      d3.select("#autoText").text("Pause");
-    } else {
-      clearInterval(inter);
-      d3.select("#autoText").text("Auto-Shuffle");
-    }
-  })
-}
+    d3.select("#autoButton").on("click", function(){
+      automate =! automate
+      shuffleSpeed = 90; sampleSize = 1000;
+
+      if (automate){
+        resetOrig();
+
+        myFunction = function() {
+          automateShuffle(dict,scales);
+          if (shuffleSpeed>20){shuffleSpeed--} else {shuffleSpeed};
+          if (shuffleCount == sampleSize) {clearTimeout(inter);cpResult();cpLine(dict,scales);} else {inter = setTimeout(myFunction, shuffleSpeed)};
+        }
+        setTimeout(myFunction, shuffleSpeed);
+        d3.select("#autoText").text("Pause");
+
+      } else {
+        clearTimeout(inter);
+        d3.select("#autoText").text("Auto-Shuffle");
+      }
+    })
+    //   d3.select("#autoButton").on("click", function(){
+    //     automate =! automate
+    //
+    //     if (automate){
+    //       resetOrig();
+    //       inter = setInterval(function() {
+    //         automateShuffle(dict,scales);
+    //         if (shuffleCount == sampleSize) {clearInterval(inter);cpLine(dict,scales);};
+    //       }, shuffleSpeed);
+    //       d3.select("#autoText").text("Pause");
+    //     } else {
+    //       clearInterval(inter);
+    //       d3.select("#autoText").text("Auto-Shuffle");
+    //     }
+    //   })
+    // }
+
+  }
 
 automateShuffle = function(data,scales){
 
@@ -1533,8 +1566,20 @@ showOrigTrend = function(data,scales){
 
 }
 
+function cpResult(){
+  cpResultText = parseInt(hitRateNum.text()) >= 95 ? "Hurrah! It looks like we've got a change-point ✔️" : "It looks like there's no change-point here 🤷‍"
+
+  speech = d3.select("#mainView")
+    .append("div").attr("id","speechDiv").attr("class","speech-box sb2").style("width",200)
+    .style("left",d3.select("#cusumView").node().offsetLeft + w*2 - 200 - 20 + 10 - 5) //300 = SpeechBubble width; 20 = ArrowWidth; 10 = HistoMargin; 5 = Additional Spacing
+    .style("top",d3.select("#histoChart").node().offsetTop + speechPointOffset + 20) //20 = manual vertical positioning
+    .append("span").text(cpResultText)
+}
+
 cpLine = function(data,scales){
   let {xScale,yScale} = scales;
+
+  cpIndex = xScale(cusumPeak[0].key)+xScale.bandwidth()
 
   svg.selectAll("rect")
   .attr("fill-opacity",  0)
@@ -1551,12 +1596,12 @@ cpLine = function(data,scales){
    .attr("stroke-width",1)
    .attr("stroke",color)
    .attr("stroke-dasharray",[5,5])
-   .transition().duration(1500).delay(delay)
+   .transition().duration(1000).delay(delay).ease(d3.easeLinear)
    .attr("y2",0)
   }
 
   drawCPLine(d3.select("#cusumSvg"),"white",0)
-  drawCPLine(baseSvg,"grey",1300)
+  drawCPLine(baseSvg,"grey",1000)
 
   data = dict.sort(function(a,b){return a.key - b.key})
 
@@ -1568,32 +1613,106 @@ cpLine = function(data,scales){
      segment2.push(d.value)
    }
   })
+  segmentMeans = [d3.mean(segment1),d3.mean(segment2)]
 
-
-  svg.append("line")
-    .attr("x1",xScale(cusumPeak[0].key) + xScale.bandwidth())
-    .attr("x2",xScale(cusumPeak[0].key) + xScale.bandwidth())
-    .attr("y1",yScale(d3.mean(segment1)))
-    .attr("y2",yScale(d3.mean(segment1)))
+  svg.append("g").attr("id","cpChar")
+    .selectAll("line")
+    .data(segmentMeans)
+    .enter()
+    .append("line").attr("class","segment-line")
+    .attr("x1",(d,i) => i==0 ? 0 : cpIndex)
+    .attr("x2",(d,i) => i==0 ? 0 : cpIndex)
+    .attr("y1",d=>yScale(d))
+    .attr("y2",d=>yScale(d))
     .attr("stroke","black")
     .attr("stroke-width",1)
-    .transition().duration(1000).delay(3000)
-    .attr("x2",0)
-  svg.append("line")
-    .attr("x1",xScale(cusumPeak[0].key) + xScale.bandwidth())
-    .attr("x2",xScale(cusumPeak[0].key) + xScale.bandwidth())
-    .attr("y1",yScale(d3.mean(segment2)))
-    .attr("y2",yScale(d3.mean(segment2)))
-    .attr("stroke","black")
-    .attr("stroke-width",1)
-    .transition().duration(1000).delay(3000)
-    .attr("x2",w)
+    .transition().duration(1000).delay((d,i) => 2500 + (i*1000))
+    .attr("x2",(d,i) => i==0 ? cpIndex : w)
+    .end().then(() =>  {
+        d3.selectAll(".segment-line").each(function(d,i){
+          svg.append("text")
+          .attr("class","segment-lab")
+          .attr("x",this.getBBox().x + this.getBBox().width/2)
+          .attr("y",this.getBBox().y -5)
+          .attr("text-anchor","middle")
+          .text(`Segment ${i+1} mean = `) //X̄
+            .append("tspan").text(Math.round((i == 0 ? segmentMeans[0] : segmentMeans[1])*10)/10).attr("font-weight","bold")
+
+     })
+
+     d3.select("#cpChar")
+       .append("line").attr("stroke","black")
+       .attr("x1",cpIndex)
+       .attr("x2",cpIndex)
+       .attr("y1",yScale(segmentMeans[0]))
+       .attr("y2",yScale(segmentMeans[0]))
+       .transition().duration(1000)
+       .attr("y2",yScale(segmentMeans[1]))
+       .on("end",cpMagCallout)
+
+     function cpMagCallout(){
+       cpIndex = xScale(cusumPeak[0].key) + xScale.bandwidth()
+       midPoint = yScale(segmentMeans[0] - (segmentMeans[0]-segmentMeans[1])/2)
+
+       let rScale = d3.scaleLinear()
+         .domain([0,segmentMeans[0]-segmentMeans[1]])
+         .range([0,(yScale(segmentMeans[1])-yScale(segmentMeans[0]))/2]);
+       cpRadius = rScale(segmentMeans[0]-segmentMeans[1])
+
+       console.log(midPoint)
+
+       dy = -50;
+       dx = 30
+
+       //Features of the annotation
+       const annotations = [{
+           note: {label: "", wrap:150},
+           x: cpIndex, y: midPoint,
+           dy: dy, dx: dx,
+           subject: {radius: cpRadius},
+           color: "#2c3e50"
+       }]
+
+       //Add annotation to the Chart
+       const makeAnnotations = d3.annotation()
+         //.editMode(true)
+         .type(d3.annotationCalloutCircle)
+         .annotations(annotations)
+       svg.append("g").attr("id","cpCallout")
+         .call(makeAnnotations);
 
 
+       speech = d3.select("#mainView")
+         .append("div").attr("id","speechDiv").attr("class","speech-box")
+         .style("width",200)
+         .style("margin-left",0)
+         .style("left",d3.select("#lineChartCont").node().offsetLeft + cpIndex + dx - 80)
+         .style("top",d3.select("#lineChartCont").node().offsetTop + midPoint + dy)
+         .append("span").text("The change-point magnitude is ")
+         speech.append("span").text(Math.round((segmentMeans[0]-segmentMeans[1])*10)/10).style("font-weight","bold")
+         speech.append("span").text("...or a drop of ")
+         speech.append("span").text(`${Math.round(((segmentMeans[0]-segmentMeans[1])/segmentMeans[0])*100)}%`).style("font-weight","bold")
 
+       d3.select("#speechDiv")
+       .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+     };
+   })
+
+  line.attr("opacity",0.5)
+
+  function blink() {
+   hitRateNum
+    .transition()
+    .duration(1000)
+    .style("fill", "#233240")
+    .transition()
+    .duration(1000)
+    .style("fill", "#78909c")
+    .on("end", blink)
+  }
+  // blink()
 }
-
-
 
 
 showData = function(){
