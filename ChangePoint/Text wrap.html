@@ -1,0 +1,178 @@
+<html>
+
+<head>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Caveat">
+    <style>
+      /*CSS Styling*/
+
+
+    .shuffle-button {
+      background: linear-gradient(to left, rgba(255,0,0,0) 50%, rgba(230, 242, 255,1) 50%);
+      background-size: 200% 100%;
+      background-position:right bottom;
+      transition:all 0.4s ease;
+    }
+    .shuffle-button:hover {
+      background-position:left bottom;
+    }
+    .shuffle-button:active {
+      background: linear-gradient(to left, rgba(0,100,200,1)  50%, rgba(0,100,200,1) 50%)
+    }
+    .shuffle-text {
+      user-select: none;
+    }
+    .shuffle-button:active > .shuffle-text{
+      fill: white;
+    }
+    #resetButton {
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    #arrow {
+      transform-origin: 20px 55px;
+      transform: rotate(40deg);
+      offset-path:path('M27,30');
+      pointer-events: none;
+    }
+
+    @keyframes move {
+      to {offset-distance: 100%;}
+    }
+    @keyframes move2 {
+      to {width: auto;}
+    }
+
+    #resetButton:active {
+      background-color: darkgrey;
+    }
+    #circle {
+      pointer-events: none;
+    }
+    #resetButton:hover #arrow{
+      transform-origin: 20px 55px;
+      transform: rotate(-85deg);
+      offset-path: path('M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30');
+      animation: move 1.2s linear forwards;
+    }
+
+    #resetButton:active #circle{
+      stroke: white;
+    }
+    #resetButton:active #arrow{
+      fill: white;
+    }
+    #firstSimAnn {
+      white-space: pre;
+    }
+    .lab-text {
+      fill: #78909c;
+      font-size: 13px;
+      font-family: "Bitter"
+    }
+
+
+
+
+    </style>
+
+  <!-- Load d3 -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Load bootstrap -->
+  <script src="http://code.jquery.com/jquery.js"></script>
+  <link href="../bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <script src="../bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+
+  <!-- Load d3-annotation -->
+  <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+
+</head>
+
+
+<body>
+
+</body>
+
+
+
+<script>
+
+
+
+
+function wrap(text, width) {
+  text.each(function() {
+    text = d3.select(this);
+        words = text.text().split(/\s+/).reverse();
+        // word;
+        line = [];
+        y = text.attr("y");
+        dy = parseFloat(text.attr("dy"));
+        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+    while(words.length>0) {
+      word = words.pop()
+      line.push(word);
+      //console.log(line);
+      tspan.text(line.join(' '));
+      console.log(tspan.text());
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(' '));
+        line = [word];
+        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", 0.8 + "em").text(word);
+      }
+    }
+  });
+}
+
+x = 50
+y = 50
+
+shuffleAnnG = d3.select("body").append("svg").attr("width",500).attr("height",500)
+    .append("g").attr("transform","translate("+(x+10)+","+y+")")
+    .attr("class","lab-text")
+
+
+shuffleAnnText = shuffleAnnG
+    .append("text").attr("alignment-baseline","hanging")
+    .attr("id","firstSimAnn")
+
+shuffleAnnText
+    .append("tspan")
+    .attr("x",0)
+    .attr("dy","2em")
+    .text("The shuffled trend has a  ")
+
+shuffleAnnText.append("tspan").text("lower").attr("fill","white").attr("id","lower")
+
+shuffleAnnG.insert("rect","text").attr("id","lowerRect")
+.attr("x", d3.select("#lower").node().getExtentOfChar(0).x-4)
+.attr("y",d3.select("#lower").node().getExtentOfChar(0).y+1)
+.attr("width",d3.select("#lower").node().getComputedTextLength()+8)
+.attr("height",d3.select("#lower").node().getExtentOfChar(0).height-2)
+.attr("rx",5)
+.attr("fill",d3.rgb("#233240"))
+
+shuffleAnnText.append("tspan").text("  change-point")
+shuffleAnnText.append("tspan")
+.attr("x",0)
+.attr("dy","1em")
+.text("effect than our original trend.")
+
+shuffleAnnText
+  .append("tspan")
+  //.attr("x",0)
+  .attr("dy","2em")
+  .text("Keep shufflin' to build up a distribution of simulation scores.")
+  .call(wrap,300)
+  .attr("opacity",0)
+  .transition().duration(1000).delay(2000)
+  .attr("opacity",1)
+
+
+
+
+</script>
+
+</html>

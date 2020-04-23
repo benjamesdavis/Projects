@@ -1,0 +1,282 @@
+<html>
+
+<head>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Caveat">
+    <style>
+      /*CSS Styling*/
+    #test {
+      font-family: caveat;
+      font-size: 20
+    }
+    .speech-box{
+      position: absolute;
+      padding: 15px;
+      margin-left: 20px;
+      margin-top: -10px;
+      background: #F7F8F9;
+      border-radius: 10px;
+      width: 300px;
+      line-height: 100%;
+      font-family: Bitter;
+      font-size: 13;
+      color: #78909c;
+      box-shadow: 2px 2px 6px black;
+    }
+    .sb2::before  {
+      content: " ";
+      width: 0px;
+      height: 0px;
+      position: absolute;
+      border-left: 20px solid #F7F8F9;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      right: -20px;
+      top: 50%;
+      margin-top: -10px;
+    }
+    #speechDiv {
+     color: #78909c;
+    }
+    .lower-higher {
+     background-color: #2c3e50;
+     color: #78909c;
+    }
+    @keyframes textflash {
+      0% { color: #dadada;  }
+      50% { color: #ababac;  }
+      100% { color: #dadada; }
+    }
+    .flash {
+      animation:textflash 1500ms infinite !important;
+    }
+    .annotations {
+      color:black;
+      fill:black;
+      stroke:black
+    }
+
+    </style>
+
+  <!-- Load d3 -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Load bootstrap -->
+  <script src="http://code.jquery.com/jquery.js"></script>
+  <link href="../bootstrap-4.4.1-dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <script src="../bootstrap-4.4.1-dist/js/bootstrap.min.js"></script>
+
+
+  <!-- Load d3-annotation -->
+  <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+
+</head>
+
+
+<body>
+
+</body>
+
+
+
+<script>
+
+let lineTrans = function(chart,duration,delay,easement){
+  easement = easement || d3.easeLinear;
+  let lineLength =  function(chart){return chart.node().getTotalLength();}
+  chart.attr("stroke-dasharray",0+" "+lineLength(chart))
+      .transition()
+      .duration(duration)
+      .delay(delay)
+      .ease(easement)
+      .attr("stroke-dasharray",lineLength(chart)+" "+lineLength(chart))
+}
+
+function wrap(text, width) {
+  text.each(function() {
+    var text = d3.select(this),
+        words = text.text().split(/\s+/).reverse(),
+        word,
+        line = [],
+        //y = text.attr("y"),
+        y = [],
+        dy = parseFloat(text.attr("dy")),
+        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em")
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "))
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", 0.8 + "em").text(word)
+        console.log(tspan.node())
+      }
+    }
+  });
+}
+
+mainSVG = d3.select("body").append("svg")
+  .attr("x",100).attr("y",100)
+  .attr("width",500).attr("height",500)
+  .style("position","absolute")
+  .style("background-color", "#2c3e50")
+
+
+function sketchyAnn(circleCentre,circleSize){
+
+  radius = circleSize/2.3
+
+  Annsvg = mainSVG.append("svg")
+  //.attr("width",circleSize*3).attr("height",circleSize*2)
+  .attr("width","100%").attr("height","100%")
+
+
+  var r = radius, c = circleCentre, w = 1, fillColor = "red", strokeColor = "black";
+
+  r = r*1.5;
+  //divide width by two to get the offset
+  var z = w /2;
+  var gCirclePoints = [];
+  gCirclePoints.push([c[0],c[1] + r - (r * .25)]);
+  gCirclePoints.push([c[0] + (r + (z * .375)) * .3,c[1] + (r - (r * 0.3)) * .9]);
+  gCirclePoints.push([c[0] + (r * .9) + (z * .375),c[1] - (r * .1)]);
+  gCirclePoints.push([c[0],c[1] - (r * 1) - (z * .5)]);
+  gCirclePoints.push([c[0] - (r * .9) - (z * .35),c[1] - (r * .1)]);
+  gCirclePoints.push([c[0] - (r + (z * .95)) * .4,c[1] + (r - (r * .25)) * .9]);
+  gCirclePoints.push([c[0],c[1] + (r * .9) + (z) - (r * .2)]);
+  gCirclePoints.push([c[0],c[1] + (r * .9) - (z) - (r * .25)]);
+
+
+  sketchyC = d3.line()
+    .x(function(d,i){return d[0]})
+    .y(function(d) {return d[1]})
+    .curve(d3.curveBasis)
+
+  Annsvg.append("path").attr("id","sketchPath")
+    .attr("d",sketchyC(gCirclePoints))
+    .style("stroke", "white")
+    .style("stroke-width",0.8)
+    .style("fill", "none")
+
+  lineTrans(d3.select("#sketchPath"),1500,0,d3.easeExp)
+
+
+  var gLinePoints = [
+    [(circleCentre[0]) + circleSize/2.2 * Math.cos(30 * (Math.PI/180)),
+     (circleCentre[1]) - circleSize/2.2 * Math.sin(30 * (Math.PI/180))]
+     ,
+    [(circleCentre[0]) + circleSize/1.5 * Math.cos(30 * (Math.PI/180)),
+     (circleCentre[1]) - circleSize/1.5 * Math.sin(30 * (Math.PI/180))]
+     ,
+    [(circleCentre[0])  + circleSize * Math.cos(22 * (Math.PI/180)),
+     (circleCentre[1])  - circleSize * Math.sin(22 * (Math.PI/180))]
+  ];
+
+
+  Annsvg.append("path").attr("id","sketchLine")
+    .attr("d",sketchyC(gLinePoints))
+    .style("stroke", "white")
+    .style("stroke-width",0.8)
+    .style("fill", "none")
+
+  lineTrans(d3.select("#sketchLine"),700,1000,d3.easeExp)
+
+  Annsvg.append("svg")
+    .attr("x",(circleCentre[0])  + circleSize * Math.cos(22 * (Math.PI/180)) + 10)
+    .attr("y",(circleCentre[1])  - circleSize * Math.sin(22 * (Math.PI/180)) - 20)
+    .append("text")
+    .attr("y",15)
+    .attr("fill","#78909c")
+    .attr("opacity",0)
+    .text("if positive (or negative) bars cluster together, the curve will gain momentum and grow taller")
+    .attr("dy","0em")
+    .call(wrap,280)
+    .transition().duration(1500).delay(1200)
+    .attr("opacity",1)
+
+}
+
+
+sketchyAnn([100,200],120)
+
+// speech = d3.select("body")
+//   .append("div").attr("id","speechDiv").attr("class","speech-box sb2")
+//   .style("left", 50).style("top", 50)
+//   .style("padding",13)
+//   .append("span").text("If ")
+// speech.append("span").text("positve").style("background-color","#93c47d").style("color","#e9ecef")
+// speech.append("span").text("&#x1F981")
+//   .append("span").text("negative").style("background-color","#e06666").style("color","#e9ecef")
+// speech.append("span").text(" deltas are clustered together, the curve will gain momentum, and grow taller")
+//
+// d3.select("#speechDiv")
+// .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+//
+// netValue = 0
+//
+// increment = function(){
+//   netValue--
+//   console.log(netValue)
+// }
+//
+//
+// setInterval(increment,1000)
+
+mainSVG.append("text").attr("class","flash")
+  .text('I will display')
+  .attr("x",50)
+  .attr("y",50)
+
+segment1 = "one"
+segment2 = "two"
+
+mainSVG.append("text").attr("class","flash")
+    .text('helo')
+    .attr("x",50)
+    .attr("y",80)
+
+d3.selectAll(".flash").each(function(d,i){
+  segment = "segment"+i
+  console.log(segment)
+})
+
+segmentMeans = [50,80]
+
+mainSVG.append("g")
+  .selectAll("line")
+  .data(segmentMeans)
+  .enter()
+  .append("line")
+  .attr("x1",(d,i)=>i==0 ? 0 : 10)
+  .attr("x2",(d,i)=>i==0 ? 0 : 10)
+  .attr("y1",d=>d)
+  .attr("y2",d=>d)
+  .attr("stroke","black")
+  .attr("stroke-width",1)
+  .transition().duration(1000).delay(2500)
+    .attr("x2",function(d,i){i==0 ? 10 : 20})
+
+    //Features of the annotation
+    const annotations = [{
+        note: {label: "", wrap:200},
+        x: 200, y: 200,
+        dy: -90, dx: 50,
+        subject: {radius: 5},
+        color: "black"
+    }]
+
+    //Add annotation to the Chart
+    const makeAnnotations = d3.annotation()
+      //.editMode(true)
+      .type(d3.annotationCalloutCircle)
+      .annotations(annotations)
+    mainSVG.append("g").attr("id","cpCallout")
+      .call(makeAnnotations);
+
+    d3.select(".annotations").attr("color","black")
+
+
+</script>
+
+</html>
