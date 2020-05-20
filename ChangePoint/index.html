@@ -1,0 +1,1731 @@
+<html>
+
+<head>
+    <!-- Custom Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Caveat">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+
+    <!-- Custom CSS styles -->
+    <link href="style.css" rel="stylesheet" type="text/css">
+
+  <!-- Load d3 -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Load d3-annotation -->
+  <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+
+</head>
+
+
+
+<body>
+
+  <div id="mainView" class = "canvas">
+    <div id = "title-row">
+      <div id = "title">ChangePoint Analysis |</div>
+      <div id = "subtitle">Detecting shifts in time-series data</div>
+    </div>
+    <div id = intro-box>
+      <div class = intro style = "margin-bottom: 10px">How can we tell whether a meaningful change has occurred in a trend? Traditionally, change-detection has involved flagging isolated values that stray from an expected range. While useful for real-time alerting, such point-by-point methods might miss more subtle, sustained shifts that could indicate profound changes in the behaviour of a system. Change-point analysis addresses this by capturing patterns formed by sequences of data points, and assessing the likelihood that a change has occured within this sequence.</div>
+      <div class = intro style = "margin-bottom: 15px">Follow the steps below,  by clicking the flashing <span id =next-intro-text> next </span> button, to find out more about how change-point analysis works.</div>
+    </div>
+      <div id="topView" class = "subdiv">
+        <div id="lineChartCont" class = "canvas"></div>
+        <div id="annCont"></div>
+      <!--  <div class="button"><button id="showBars" type="button">Toggle Bars</button></div>-->
+      </div>
+      <div class = "bottomContainer">
+        <!-- <h5>Simulation statistics</h5> -->
+        <div id="bottomView" class = "subdiv">
+          <div id="cusumView"></div>
+          <div id="histoView" class = "subdiv">
+            <div id="histoChart"></div>
+            <div id="histoLab"></div>
+          </div>
+        </div>
+      </div>
+  </div>
+  </div>
+</body>
+
+
+
+<script>
+
+w = 400
+h = 250
+
+// Line Chart Setup ----------------------
+let lineMargin = {top: 45, right: 0, bottom: 30, left: 0};
+let lineWidth = w - lineMargin.left - lineMargin.right,
+    lineHeight = h - lineMargin.top - lineMargin.bottom;
+
+let baseSvg = d3.select("#lineChartCont")
+  .append("svg").attr("id","baseSVG")
+  .attr("width",w)
+  .attr("height",h)
+
+d3.select("#lineChartCont").append("text").text("Time Series")
+  .attr("class","chart-label").style("color","#b7b7b7")
+
+let svg = baseSvg.append("svg").attr("id","lineChart")
+  .attr("y",lineMargin.top)
+  .attr("width", w)
+  .attr("height", h-lineMargin.top-lineMargin.bottom)
+
+// Note-card Setup -------------------
+annCont = d3.select("#annCont")
+let AnnWindow = annCont.append("svg")
+  .attr("id","AnnWindow")
+  .attr("width",325)
+  .attr("height",200)
+
+let PageNum = annCont.append("svg").attr("id","pageNum")
+  .attr("width",30)
+  .attr("height",30)
+  .append("g").attr("transform","translate(0,0)")
+PageNum.append("svg:image")
+  .attr("width","100%")
+  .attr("height","100%")
+  .attr("xlink:href", "PenCircle.PNG")
+
+let nextButtonSize = 38
+let nextButton = annCont
+  .append("svg")
+  .attr("id","nextButton")
+  .attr("width",nextButtonSize)
+  .attr("height",nextButtonSize)
+  .attr("x",357)
+  .attr("y",h-44)
+
+// CUSUM Setup ----------------
+let cusumSvg = d3.select("#cusumView")
+  .append("svg").attr("id","cusumSvg")
+  .attr("width", w*2)
+  .attr("height", h)
+
+d3.select("#cusumView")
+  .append("text")
+  .text("Change-point Score")
+  .attr("class","chart-label")
+  .style("color","#78909c")
+
+var gradient = svg.append("linearGradient").attr("id","gradient").attr("x1","0").attr("x2","0").attr("y1","0").attr("y2","1")
+  gradient.append('stop').attr('stop-color', d3.rgb("#78909c")).attr('offset', '0%');
+  gradient.append('stop').attr('stop-color', d3.rgb("#4e616e")).attr('offset', '33%');
+  gradient.append('stop').attr('stop-color', d3.rgb("#233240")).attr('offset', '95%');
+
+// Histogram Setup -----------
+histoWidth = 110
+let histoSVG = d3.select("#histoChart")
+  .append("svg")
+  .attr("id","histoSVG")
+  .attr("width",histoWidth)
+  .attr("height",h)
+  .style("margin-left",10)
+// let histoBackground = histoSVG.append("rect")
+//   .attr("class","histoBackground")
+//   .attr("width",histoWidth)
+//   .attr("height",h)
+// var histoGradient = histoSVG.append("linearGradient").attr("id","histoGrad").attr("x1","0").attr("x2","1").attr("y1","0").attr("y2","0")
+//   histoGradient.append('stop').attr('stop-color', d3.rgb("#2c3e50")).attr('offset', '84%');
+//   histoGradient.append('stop').attr('stop-color', d3.rgb("#d9d9db")).attr('offset', '16%');
+//----------------------------------
+
+
+
+speechPointOffset = 3
+
+let showBars = true
+let automate = false
+
+//Button -----------
+buttonWidth = 100;
+buttonHeight = 30;
+
+Button = function(container,text,width,height){
+   width = width || buttonWidth
+   height = height || buttonHeight
+   ShuffleButton = container.append("svg")
+     .attr("id",`${text}`)
+     .attr("class","shuffle-button")
+     .attr("width", width)
+     .attr("height",height)
+   ShuffleButton.append("text")
+     .attr("class","shuffle-text")
+     .attr("x","50%")
+     .attr("y","50%")
+     .text(`${text}`)
+     .attr("text-anchor","middle")
+     .attr("dominant-baseline","middle")
+   ShuffleButton.append("line")
+     .attr("x1",0)
+     .attr("x2",0)
+     .attr("y1",height-1)
+     .attr("y2",height-1)
+     .attr("stroke-width", 1.5)
+     .attr("stroke","black")
+     .attr("opacity",0.9)
+     .transition().duration(1500)
+       .attr("x2", width)
+ }
+//-----------------------------------
+
+function lineTrans(chart,duration,delay,easement){
+  easement = easement || d3.easeLinear
+  let lineLength =  function(chart){return chart.node().getTotalLength();}
+  chart.attr("stroke-dasharray",0+" "+lineLength(chart))
+      .transition()
+      .duration(duration)
+      .delay(delay)
+      .ease(easement)
+      .attr("stroke-dasharray",lineLength(chart)+" "+lineLength(chart))
+}
+
+function wrap(text, width) {
+  text.each(function() {
+    var text = d3.select(this),
+        words = text.text().split(/\s+/).reverse(),
+        word,
+        line = [],
+        y = [],
+        dy = parseFloat(text.attr("dy")),
+        x = parseFloat(text.attr("x")) || 0,
+        tspan = text.text(null).append("tspan").attr("x", x).attr("y", y).attr("dy", dy + "em");
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = text.append("tspan").attr("x", x).attr("y", y).attr("dy", 0.8 + "em").text(word);
+      }
+    }
+  });
+}
+
+//enable/disable "Next" button (used globally, not just in stepSequencer)
+function wait(){
+  d3.select("#next").attr("class","nextButton-waiting");
+  d3.select("#nextOverlay").attr("class","noClick")
+}
+function ready(){
+  d3.select("#next").attr("class","nextButton-ready");
+  d3.select("#nextOverlay").attr("class",null)
+}
+//-------------------------
+
+
+// Initial Config -------------
+dataGeneration = function(){
+
+    randomArray = function(size,mean,stdev){
+      let array = [];
+      for(let i=0; i<size; i++){
+        let newNumber = d3.randomNormal(mean,stdev)();
+        array.push(newNumber);
+      }
+      return array
+    }
+
+    firstPhase = randomArray(40,20,4)
+    secondPhase = randomArray(30,17,3)
+    thirdPhase = randomArray(15,18,4)
+
+
+    combinedArray = firstPhase.concat(secondPhase,thirdPhase)
+
+    mean = d3.mean(combinedArray,d => d)
+
+    dict = []
+    combinedArray.map(function(d,i){
+      dict[i] = {"key":i,"value":d}
+    })
+
+  generateRunningSum = function(data){
+  	rsData = data.map((d,i) => promise = {"key":i, "value": d.value, "delta": d.value - mean})
+
+  	    var cumulative = 0;
+  	    for (var i = 0; i < data.length; i++) {
+  	      rsData[i].start = cumulative;
+  	      cumulative += rsData[i].delta;
+  	      rsData[i].end = cumulative;
+  	      rsData[i].class = ( rsData[i].delta >= 0 ) ? 'positive' : 'negative'
+  	    }
+
+      rsMin = d3.min(rsData, d => Math.min(d.start,d.end))
+
+      for (var i=0; i < rsData.length; i++){
+ 	    rsData[i].start = rsMin >= 0 ? rsData[i].start - rsMin : rsData[i].start + (rsMin*-1);
+ 	    rsData[i].end = rsMin >= 0 ? rsData[i].end - rsMin :  rsData[i].end + (rsMin*-1);
+ 	   }
+      rsMax = d3.max(rsData, d => Math.max(d.start,d.end))
+	  }
+  generateRunningSum(dict)
+
+  return {combinedArray,dict }
+}
+
+getScales = function(data){
+	 xScale = d3.scaleBand()
+		 .domain(d3.range(data.length))
+		 .range([0,w]);
+
+	 yScale = d3.scaleLinear()
+		.domain([d3.min(rsData,(d => d.value)), d3.max(rsData,(d => d.value))])
+		.range([lineHeight,0]);
+
+	 yScaleCUSUM = d3.scaleLinear()
+		.domain([0,rsMax*1.6])
+		.range([h,0]);
+
+	 yScaleCSMheight = d3.scaleLinear()
+		.domain([0, Math.abs(rsMax)])
+		.range([h,0]);
+
+  return {xScale,yScale, xScale, yScaleCUSUM, yScaleCSMheight}
+}
+//------------------------------
+
+stepTracker = function(){
+  stepTrackerSVG = d3.select("#topView").append("svg").attr("id", "step-cont")
+    .attr("width", 200)
+    .attr("height", h)
+
+  steps = d3.range(6)
+  stepDesc = ["Take a time-series",
+            "Convert values into deviations",
+            "Quantify the strength of change",
+            "Generate a null distribution",
+            "Assess significance",
+            "Characterise change-point"]
+
+  stepDict = []
+  stepDesc.map(function(d,i){
+    stepDict[i] = {"key":i,"desc":d}
+  })
+
+  stepGroups = stepTrackerSVG.selectAll("g").attr("id","group")
+    .data(stepDict)
+    .enter()
+    .append("g");
+
+  stepCircles = stepGroups.append("circle").attr("id","circle")
+    .attr("cx",10)
+    .attr("cy",d => d.key * (h/steps.length) + (h/steps.length)/2)
+    .attr("r",3.5)
+    .attr("fill","white")
+    .attr("stroke","#b7b7b7")
+
+  stepText = stepGroups.append("text")
+    .attr("class","step-text")
+    .text(d => d.desc)
+    .attr("x",22)
+    .attr("y",(d,i) => i * (h/stepDesc.length) + (h/stepDesc.length)/2)
+    .attr("fill", "#b7b7b7")
+    .attr("dy",0)
+    .call(wrap,130)
+
+  //Hard-coded Y-axis correction for one-line labels. Find a way to make dynamic.
+  d3.select(stepText.nodes()[0]).attr("y",24)
+  d3.select(stepText.nodes()[4]).attr("y",190)
+
+  stepLine = stepTrackerSVG.insert("line","g")
+    .attr("x1",10)
+    .attr("x2",10)
+    .attr("y1",stepCircles.nodes()[0].getBBox().y)
+    .attr("y2",stepCircles.nodes()[steps.length-1].getBBox().y)
+    .attr("stroke","#b7b7b7")
+
+  trackedStep = 0
+  nextStep = function(){
+    d3.select(stepCircles.nodes()[trackedStep]).attr("fill","#b7b7b7").attr("stroke","#283848");
+    d3.select(stepCircles.nodes()[trackedStep-1]).attr("fill","#b7b7b7").attr("stroke","#b7b7b7");;
+    d3.select(stepText.nodes()[trackedStep]).attr("fill","#283848");
+    d3.select(stepText.nodes()[trackedStep-1]).attr("fill","#b7b7b7");
+  };
+  nextStep();
+}
+
+stepSequencer = function(dict,scales){
+
+  step = 1;
+  trackedStep = 1;
+  d3.select("#nextOverlay").on("click",function(){
+
+    if (step == 1){
+      nextStep();
+      wait();
+      PageNum.select("text").text("2");
+      d3.selectAll(".ann1").remove();
+
+      AnnWindow
+        .append("text").attr("class","ann2")
+        .attr("text-anchor","left")
+        .text("Calculate the deviation of each data point from the mean (i.e. the delta).")
+        .attr("dy","1em")
+        .call(wrap,300)
+
+      drawMeanLine(dict,scales);
+
+      step = 2;
+
+    } else if (step == 2) {
+      AnnWindow.append("text").attr("class","ann2")
+        .text("But how can we quantify the strength of this change?")
+        .attr("y",AnnWindow.node().getBBox().height)
+        .attr("dy","0.3em")
+        .call(wrap,300)
+        .transition().duration(800)
+        .attr("opacity",1);
+
+      step = 3;
+      trackedStep = 2;
+
+    } else if (step == 3) {
+      nextStep();
+      d3.select("#hG").remove();
+      d3.selectAll(".ann2").remove();
+      PageNum.select("text").text("3");
+      wait();
+
+      AnnWindow
+        .append("text").attr("class","ann3")
+        .attr("text-anchor","left")
+        .text("By plotting the cumulative sum of deltas, we can translate sustained sequences of higher vs. lower activity into a curve.")
+        .attr("dy","1em")
+        .call(wrap,300);
+
+      //Grey out delta bars
+      svg.selectAll("rect").transition().duration(2000).attr("fill","rgb(184,184,184)");
+
+      setTimeout(function(){ready()},1500);
+
+      step = 4;
+
+    } else if (step == 4) {
+      wait();
+      animateWaterfall(rsData, scales);
+      step = 5;
+
+    } else if (step == 5){
+      d3.selectAll(".ann3").remove();
+      wait();
+
+      test = AnnWindow.append("text").attr("class","ann3")
+        .text("However...the change-point score alone doesn't tell us if the change is real or not.")
+        .attr("dy","1em")
+        .call(wrap,300)
+      test.append("tspan")
+        .text("Patterns in the trend (and thus the change-point score) might simply reflect random sequences, like a gambler who hits a lucky streak every so often.")
+        .call(wrap,300)
+        .attr("dy","1.5em").attr("x",0)
+        .attr("opacity",0)
+        .transition().duration(1000).delay(2000)
+          .attr("opacity",1)
+          .on("end",ready)
+      step = 6;
+
+    } else if (step == 6) {
+      wait();
+
+      test.append("tspan")
+        .text("...So we need to ask: could a score this high have simply resulted by chance?")
+        .call(wrap,300)
+        .attr("dy","1.7em")
+        .attr("opacity",0)
+        .transition().duration(1000)
+          .attr("opacity",1)
+          .on("end",ready)
+
+      step = 7;
+      trackedStep = 3;
+
+    } else if (step == 7){
+      nextStep();
+      d3.selectAll(".ann3").remove();
+      d3.select("#speechDiv").remove();
+      PageNum.select("text").text("4");
+
+      AnnWindow.append("text").attr("class","ann4")
+        .text("We can estimate the range of scores expected by chance alone, by calculating the change-point scores of 1000 random re-shuffles of the data points.")
+        .attr("dy","1em")
+        .call(wrap,300)
+       step = 8;
+
+    } else if (step == 8){
+      wait();
+
+      buttonG = annCont.append("g").attr("id","buttonG")
+
+      Button(buttonG,"Shuffle")
+
+      shuffleData(dict,scales);
+
+      step = 9;
+
+    } else if (step == 9) {
+      wait();
+
+      d3.select("#speechDiv").remove();
+      d3.select("#buttonG").remove();
+      PageNum.select("text").text("6");
+
+      trackedStep = 5;
+      nextStep();
+
+      d3.select(".ann4")
+        .text("Alongside the confidence level, we can describe other key features of the change - such as when it occurred, and how big it was.")
+        .call(wrap,300);
+
+      ready();
+
+      step = 10;
+
+    } else if (step == 10){
+      wait();
+      function cpTimeCallout(){
+        //if (clickCount === cusumPeak[0].key) {
+            highestValue = yScaleCUSUM(cusumPeak[0].end)
+            highestIndex = xScale(cusumPeak[0].key) + xScale.bandwidth()
+
+            //Features of the annotation
+            const annotations = [{
+                note: {label: "", wrap:250},
+                x: highestIndex, y: highestValue,
+                dy: -40, dx: 50,
+                subject: {radius: 25},
+                color: "white"
+            }]
+
+            //Add annotation to the Chart
+            const makeAnnotations = d3.annotation()
+              // .editMode(true)
+              .type(d3.annotationCalloutCircle)
+              .annotations(annotations)
+            d3.select("#cusumSvg")
+              .append("g").attr("id","cpTimeCallout")
+              .call(makeAnnotations);
+
+            speech = d3.select("#mainView")
+              .append("div").attr("id","cpTimeSpeechDiv").attr("class","speech-box")
+              .style("left",d3.select("#cusumView").node().offsetLeft + xScale(cusumPeak[0].key) + xScale.bandwidth() + 30)
+              .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(cusumPeak[0].end) - 40)
+              .append("span").text("The peak of the curve pin-points the timing of the change")
+
+            d3.select("#cpTimeSpeechDiv")
+            .style("margin-top",-d3.select("#cpTimeSpeechDiv").node().offsetHeight/2)
+            .style("width",250)
+
+          };
+
+      cpTimeCallout();
+      setTimeout(ready,1500)
+
+      step = 11;
+    } else if (step == 11) {
+      // d3.select("#speechDiv").remove();
+      wait();
+
+      d3.select("#cpTimeCallout").remove();
+      d3.select("#cpTimeSpeechDiv").remove();
+      cpLine(dict,scales);
+    }
+
+
+  })
+}
+
+
+// Draw Charts -------------------
+drawLine = function(data,scales){
+  let {xScale,yScale} = scales;
+
+   valueline = d3.line()
+    .x(function(d,i){return xScale(i)})
+    .y(d => yScale(d))
+
+
+  line = svg.append("g").attr("id","RL").append("path")
+          .datum(data)
+          .attr("d", valueline)
+          .attr("class","line")
+          lineTrans(line,4000,0)
+
+  /// Walk-through prompt card
+  PageNum
+    .append("text")
+    .attr("text-anchor","middle")
+    .text("1")
+    .attr("dx",12)
+    .attr("dy",22)
+
+  AnnWindow
+    .append("text").attr("class","ann1")
+    .attr("text-anchor","left")
+    .text("Take a time series")
+    .attr("dy","1em")
+
+  AnnWindow
+    .append("text").attr("class","ann1")
+    .attr("text-anchor","left")
+    .text("...here is a generated trend")
+    .transition().duration(4000)
+    .attr("opacity",1)
+    .attr("dy","2.5em")
+    .attr("dx","0.5em")
+    .on("end",
+      function(){
+        setTimeout(function(){
+          //d3.select("#annCont").append("button").attr("id","next").text("next");
+          nextButton.append("polygon").attr("id","next").attr("class","nextButton-ready")
+            .attr("points","0,"+nextButtonSize+" "+nextButtonSize+","+nextButtonSize+" "+nextButtonSize+",0")
+          nextButton.append("text").text("next").attr("id","nextText").attr("dy","0.68em").attr("dx","-0.25em")
+          nextButton.append("rect").attr("id","nextOverlay").attr("width",nextButtonSize).attr("height",nextButtonSize).attr("opacity",0)
+          stepSequencer(dict,scales)
+        }, 500);
+      }
+    )
+  //////////////////////
+
+
+
+}
+
+drawMeanLine = function(dict,scales){
+  let {yScale} = scales;
+  let meanLine = svg.append("g").append("line").attr("id","meanLine")
+    .attr("x1",0)
+    .attr("x2",0)
+    .attr("y1",yScale(mean))
+    .attr("y2",yScale(mean))
+    .attr("stroke","black")
+    .transition().duration(1500)
+    .attr("x2",w)
+    .on("end",function(){
+        drawBars(dict,scales);
+      })
+
+}
+
+drawBars = function(data,scales){
+  let {xScale,yScale} = scales;
+
+  bars = svg.append("g").attr("id","devBars").selectAll("rect")
+       .data(data, function(d){return d.key})
+       .enter()
+       .append("rect")
+       .attr("x",function(d,i){return xScale(i)})
+       .attr("y", yScale(mean))
+       .attr("height",0)
+       .attr("width", xScale.bandwidth())
+       .attr("fill", d =>  d.value > mean ? "green" : "red")
+       .attr('fill-opacity', 0.4)
+
+       bars.transition()
+       .duration(2000)
+       .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
+       .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
+       .end().then(() =>  {
+          //Highlighted text
+          hG = AnnWindow.append("g").attr("id","hG").attr("transform","translate(0,70)")
+
+            hG.append("text")
+              .text("If ")
+
+             let posText = hG
+               .append("text")
+               .attr("dx",hG.node().getBBox().width + 3)
+               .text("positive")
+             posBbox = posText.node().getBBox();
+
+
+             hG.insert("rect","text").attr("id","posMask")
+              .attr("x",posBbox.x-5)
+              .attr("y",posBbox.y+6)
+              .attr("width",posBbox.width+10)
+              .attr("height",posBbox.height-10)
+              .attr("fill","white")
+
+             hG.insert("image","rect")
+              .attr("x",posBbox.x-5)
+              .attr("y",posBbox.y)
+              .attr("width",posBbox.width+10)
+              .attr("height",posBbox.height+2)
+              .attr("xlink:href", "GreenHighlight.png")
+
+             hG.append("text")
+              .text("/")
+              .attr("dx",hG.node().getBBox().width + 3)
+
+             let negText = hG
+               .append("text")
+               .text("negative").attr("id","negText")
+               .attr("dx",hG.node().getBBox().width+3)
+              negBbox = d3.select("#negText").node().getBBox();
+
+              hG.insert("rect","text").attr("id","negMask")
+               .attr("x",negBbox.x-5)
+               .attr("y",negBbox.y+6)
+               .attr("width",negBbox.width+10)
+               .attr("height",negBbox.height-10)
+               .attr("fill","white")
+
+              hG.insert("image","rect")
+               .attr("x",negBbox.x-5)
+               .attr("y",negBbox.y)
+               .attr("width",negBbox.width+10)
+               .attr("height",negBbox.height+2)
+               .attr("xlink:href", "RedHighlight.png")
+
+
+             hG.append("text")
+              .attr("dx",hG.node().getBBox().width + 3)
+              .text("deltas are largely")
+
+              hG.append("text").attr("id","together")
+               .attr("dy","0.9em")
+               .text("grouped together....")
+
+              setTimeout(function(){
+                d3.select("#posMask").transition().ease(d3.easeExp).duration(1000).attr("width",0).remove();
+              },500)
+              setTimeout(function(){
+                d3.select("#negMask").transition().ease(d3.easeExp).duration(1000).attr("width",0).remove();
+              },1200)
+
+            //
+            hG.append("text")
+            .text("this suggests distinct")
+            .attr("dx",d3.select("#together").node().getBBox().width +3)
+            .attr("dy","0.9em")
+            .attr("opacity",0)
+            .transition().duration(1500).delay(2000)
+            .attr("opacity",1)
+
+            hG.append("text")
+            .text("segments exist in the trend, with a switch between periods of higher vs. lower activity.")
+            .attr("dy","1.8em")
+            .call(wrap,300)
+            .attr("opacity",0)
+            .transition().duration(1500).delay(2000)
+            .attr("opacity",1)
+            .on("end",ready)
+            //
+
+          //Hide bars on hover
+          barOverlay = d3.select("#lineChartCont").append("svg").attr("id","barOverlay").attr("width",400).attr("height",lineHeight)
+
+          barOverlay.on("mouseover", function(){
+            svg.selectAll("rect")
+            .transition()
+            .attr("height", 0)
+            .attr("y",yScale(mean))
+          })
+
+          barOverlay.on("mouseout", function(){
+              svg.selectAll("rect")
+              .transition()
+              .attr("height",d => Math.abs(yScale(mean) - yScale(d.value)))
+              .attr("y",d => d.value > mean ? yScale(d.value) : yScale(mean))
+            })
+
+          barOverlay.on("click", function(){
+            svg.selectAll("rect")
+            .attr("fill-opacity", showBars ? 0 : 0.4)
+            d3.select("#meanLine")
+            .attr("stroke-opacity", showBars ? 0 : 0.4)
+
+            showBars =! showBars
+          });
+
+        })
+      }
+
+animateWaterfall = function(data, scales){
+	let {xScale, yScale, yScaleCUSUM, yScaleCSMheight} = scales;
+
+	rsData2 = []
+
+	clickCount = 0
+
+  //Draw CUSUM rect behind waterfall
+  cusumSvg.append("rect").attr("id","cusumRect")
+    .attr("x",0)
+    .attr("y", yScaleCUSUM(rsMax))
+    .attr("width",w)
+    .attr("height", h - yScaleCUSUM(rsMax))
+    .attr("fill", d3.rgb("#233240"))
+    .attr("opacity", 0)
+
+  //Annotation Callout Value
+  cusumPeak = rsData.slice().sort((a, b) => d3.descending(a.end, b.end))
+
+  //Cycle through updateData until all data points are rendered
+  //let duration = 120
+  let duration = 120 //CHANGE BACK TO 120
+
+  cumPos = 0; posIndex = [];
+  cumNeg = 0; negIndex =[]; negCount = 0;
+  cumNeu = 0; neuIndex =[]; neuCount = 0;
+
+  function pollDOM(){
+    //if max point, draw callout, and then remove
+    if (clickCount === cusumPeak[0].key){
+      addDelta();
+      setTimeout(Callout,100);
+      setTimeout(function(){
+        pollDOM();
+        d3.select("#callout").remove();
+        d3.select("#speechDiv").remove();
+      },6000);
+    } else if (clickCount === negIndex+1) {
+      addDelta();
+      setTimeout(Callout3,100);
+      setTimeout(function(){
+        pollDOM();
+        d3.select("#callout").remove();
+        d3.select("#speechDiv").remove();
+      },6000);
+    } else if (clickCount === rsData.length) {
+      cusumMax(scales);
+    //if another other point, cycle as normal
+    } else {
+      addDelta();
+      setTimeout(pollDOM,duration);
+    }
+  }
+  pollDOM();
+
+  waterfallGroup = cusumSvg.append("g").attr("id","waterfallBars")
+
+  function Callout(){
+    //if (clickCount === cusumPeak[0].key) {
+        highestValue = yScaleCUSUM(cusumPeak[0].end)
+        highestIndex = xScale(cusumPeak[0].key)
+
+        //Features of the annotation
+        const annotations = [{
+            note: {label: "", wrap:200},
+            x: highestIndex, y: highestValue,
+            dy: -40, dx: 100,
+            subject: {radius: 35},
+            color: "white"
+        }]
+
+        //Add annotation to the Chart
+        const makeAnnotations = d3.annotation()
+          //.editMode(true)
+          .type(d3.annotationCalloutCircle)
+          .annotations(annotations)
+        d3.select("#cusumSvg")
+          .append("g").attr("id","callout")
+          .call(makeAnnotations);
+
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box")
+          .style("left",d3.select("#cusumView").node().offsetLeft + xScale(cusumPeak[0].key) + 50)
+          .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(cusumPeak[0].end) - 30)
+          .append("span").text("Where values are consistently above average, the net accumulation of ")
+        speech.append("span").text("positive").style("background-color","#93c47d").style("color","#e9ecef")
+        speech.append("span").text(" deltas drives the slope upwards")
+
+        d3.select("#speechDiv")
+        .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+      };
+
+  function Callout2(){
+    //if (clickCount === cusumPeak[0].key) {
+        highestValue = yScaleCUSUM(rsData[clickCount-5].end)
+        highestIndex = xScale(rsData[clickCount-5].key)
+
+        //Features of the annotation
+        const annotations = [{
+            note: {label: "", wrap:200},
+            x: highestIndex, y: highestValue,
+            dy: -40, dx: 100,
+            subject: {radius: 35},
+            color: "white"
+        }]
+
+        //Add annotation to the Chart
+        const makeAnnotations = d3.annotation()
+          //.editMode(true)
+          .type(d3.annotationCalloutCircle)
+          .annotations(annotations)
+        d3.select("#cusumSvg")
+          .append("g").attr("id","callout")
+          .call(makeAnnotations);
+
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box")
+          .style("left",d3.select("#cusumView").node().offsetLeft + xScale(rsData[clickCount-5].key) + 50)
+          .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsData[clickCount-5].end) - 30)
+          .append("span").text("If ")
+        speech.append("span").text("positve").style("background-color","#93c47d").style("color","#e9ecef")
+        speech.append("span").text(" and ")
+          .append("span").text("negative").style("background-color","#e06666").style("color","#e9ecef")
+        speech.append("span").text(" deltas are interspersed, the curve will remain flat")
+
+        d3.select("#speechDiv")
+        .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+      };
+
+  function Callout3(){
+    //if (clickCount === cusumPeak[0].key) {
+        highestValue = yScaleCUSUM(rsData[negIndex-1].end)
+        highestIndex = xScale(rsData[negIndex-1].key)
+
+        //Features of the annotation
+        const annotations = [{
+            note: {label: "", wrap:200},
+            x: highestIndex, y: highestValue,
+            dy: -40, dx: 100,
+            subject: {radius: 35},
+            color: "white"
+        }]
+
+        //Add annotation to the Chart
+        const makeAnnotations = d3.annotation()
+          //.editMode(true)
+          .type(d3.annotationCalloutCircle)
+          .annotations(annotations)
+        d3.select("#cusumSvg")
+          .append("g").attr("id","callout")
+          .call(makeAnnotations);
+
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box")
+          .style("left",d3.select("#cusumView").node().offsetLeft + xScale(rsData[negIndex-1].key) + 50)
+          .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsData[negIndex-1].end) - 30)
+          .append("span").text("...And where values are consistently below average, ")
+        speech.append("span").text("negative").style("background-color","#e06666").style("color","#e9ecef")
+        speech.append("span").text(" deltas bring the curve back down")
+
+        d3.select("#speechDiv")
+        .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+      };
+
+  function addDelta(){
+			rsData2[clickCount] = rsData[clickCount]
+
+      yScaleCUSUM.domain([d3.min(rsData2,d => Math.min(d.end, d.start)) , d3.max(rsData2,d => Math.max(d.end, d.start)) * 1.6])
+      yScaleCSMheight.domain([0 , (d3.max(rsData2,d => Math.max(d.end, d.start))*1.6) - d3.min(rsData2,d => Math.min(d.end, d.start))])
+
+      if (cumNeg > -6 && clickCount > 45) {
+        rsData[clickCount].delta < 0 ? cumNeg-- : cumNeg++;
+        cumNeg > 0 ? cumNeg = 0 : cumNeg;
+        cumNeg == -6 ? negIndex = clickCount : null;
+      }
+
+      clickCount ++
+
+			waterfall = d3.select("#waterfallBars").selectAll("rect")
+			      .data(rsData2)
+
+			waterfallEnter = waterfall.enter()
+			      .append("rect")
+			      .attr("x",function(d,i){return xScale(i)})
+			      .attr("y", d => yScaleCUSUM(d.start))
+			      .attr("height", 0)
+			      .attr("width", xScale.bandwidth())
+			      .attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)") //#94C895 = green | #FA9595 = red
+			      .attr('fill-opacity', 1)
+
+			waterfall.merge(waterfallEnter)
+				.transition().duration(duration)
+				.attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
+				.attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
+
+      bars = svg.selectAll("rect")
+        .attr("fill",(d,i) => i = rsData2[i] ? (d.value > mean ? "green" : "red") : "rgb(184,184,184)")
+
+  		}
+
+
+			shuffleCount = 0
+
+
+}
+
+cusumMax = function(scales){
+	let {yScaleCUSUM} = scales
+
+  origHeight = rsMax
+  origHeight2 = rsMax - rsMin
+
+  function cusumMaxAnn(){
+
+    speech = d3.select("#mainView")
+      .append("div").attr("id","speechDiv").attr("class","speech-box sb1")
+      .style("left",d3.select("#cusumView").node().offsetLeft + w)
+      .style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
+      .append("span").text("The more pronounced the change, the higher the curve 📈 will grow.")
+    speech.append("br")
+    speech.append("br")
+    speech.append("span").text("..And the resulting curve height is taken as our change-point score...")
+    speech.append("span").text(Math.round(origHeight*10)/10).style("font-weight",900)
+    speech.append("span").text(" in this case.")
+
+    d3.select("#speechDiv")
+    .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+  }
+
+  //Draw cusumHeightBars underneath OrigHeight line
+  cusumSvg.append("g").attr("id","cusumHeightBars")
+
+	cusumSvg.append("line")
+		.attr("x1",0)
+		.attr("x2",0)
+		.attr("y1",yScaleCUSUM(rsMax))
+		.attr("y2",yScaleCUSUM(rsMax))
+		.attr("stroke","white")
+		.transition()
+    .duration(1500)
+		.attr("x2",w)
+    .on("end",function(){
+      setTimeout(cusumMaxAnn,1500)
+    })
+
+  cusumSvg.select("#cusumRect")
+    .transition()
+    .duration(1500)
+    .delay(1500)
+    .attr("opacity", 1)
+    .on("end",function(){ready()})
+
+
+  xScaleHeight = d3.scaleBand()
+                  .domain(d3.range(cusumHeights.length))
+                  .range([w,w*2])
+                  .padding(0.1)
+
+}
+
+drawHisto = function(scales){
+  let {yScaleCUSUM} = scales;
+
+  numBins = 50
+  histoRange = rsMax*1.6
+  binWidth = histoRange/numBins
+
+  thresholds = [0]
+  prevThreshold = 0
+  for (i = 0; i < numBins-1; i++){
+    thresholds.push(prevThreshold + binWidth)
+    prevThreshold = prevThreshold + binWidth
+  }
+
+  histogram =  d3.histogram()
+    .value(d => d)
+    .domain(yScaleCUSUM.domain())
+    .thresholds(thresholds)
+
+  bins = histogram(cusumHeights)
+
+  histoX = d3.scaleLinear()
+    .domain([0, d3.max(bins,function(d){return d.length;})])
+    .range([0,histoWidth*0.8])
+
+  histoSVG.append("g").attr("id","histoBars")
+    .selectAll("rect")
+    .data(bins)
+    .enter()
+    .append("rect")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
+      .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
+      .attr("width", 0)
+      .style("fill", function(d){return (d.x0 + d.x1)/2  > rsMax ? "#ccffff" : "black"})
+      .attr("opacity",function(d){return (d.x0 + d.x1)/2  > rsMax ? 0.4 : 0.2})
+
+  histoSVG.append("g").attr("id","histoMX").append("line")
+     .style("stroke","white")
+     .attr("x1",0)
+     .attr("x2",histoWidth)
+     .attr("y1",yScaleCUSUM(rsMax))
+     .attr("y2",yScaleCUSUM(rsMax))
+     .attr("stroke-dasharray",[5,5])
+     .style("opacity",0)
+
+  simCount = histoSVG.append("g").attr("id","simCount")
+    .attr("transform", "translate(55,"+(h-(h/20))+")")
+
+  simCountNum = simCount.append("text").attr("class","num-text")
+   .text(0)
+   .attr("text-anchor","middle")
+   .attr("dy","-1em")
+   .attr("dx","-0.3em");
+
+  simCountLab = simCount.append("text").attr("class","lab-text")
+  .text("Simulations")
+  .attr("text-anchor","middle")
+  .attr("dx","-0.3em");
+
+
+  hitRate= histoSVG.append("g").attr("id","hitRate")
+  .attr("transform", "translate(55,"+h/15+")")
+
+  hitRateNum = hitRate.append("text").attr("class","num-text")
+   .text("0.0%")
+   .style("font-size","20px")
+   .attr("text-anchor","middle")
+   .attr("dy","1em")
+   .attr("dx","-0.3em");
+
+  hitRateLab = hitRate.append("text").attr("class","lab-text")
+  .text("Confidence")
+  .attr("text-anchor","middle")
+  .attr("dx","-0.3em");
+
+  // histoSVG.append("g").attr("transform","translate("+(histoWidth-15)+","+h/2+")")
+  //   .append("text").attr("class","histo-lab")
+  //   .text("Dist. of simulation scores")
+  //   .attr("text-anchor","middle")
+
+}
+//-------------------------------
+
+
+// Shuffling -----------------------
+shuffleData = function(data,scales){
+  d3.select("#Shuffle").on("click", function(){
+    let {xScale,yScale,yScaleCUSUM,yScaleCSMheight} = scales;
+
+    d3.select("#arrow").attr("opacity","1");
+    d3.select("#circle").attr("opacity","1");
+
+    //First Shuffle: Extend Max Line
+    if (shuffleCount === 0){
+        //Extend Max Line
+        cusumSvg.select("line")
+      		.attr("x2",w*2)
+          .attr("stroke-dasharray",[5,5])
+
+        d3.select("#histoMX")
+          .select("line")
+          .style("opacity",1)
+    };
+    ////////////////////////
+
+
+    data2 = d3.shuffle(data)
+    generateRunningSum(data2)
+
+
+    //Shuffle Line
+    valueline = d3.line()
+     .x(function(d,i){return xScale(i)})
+     .y(d => yScale(d.value))
+
+     d3.select("#RL").selectAll("path")
+      .datum(data)
+      .transition()
+      .duration(800)
+      .attr("d", valueline)
+      .attr("class","line")
+      .attr("stroke-dasharray",[8000,8000])
+
+    //Shuffle Bars
+    svg.selectAll("rect")
+    .data(data2,d => d.key)
+      .transition()
+      .duration(800)
+        .attr("x", function(d,i){return xScale(i)})
+
+    //Shuffle Waterfall
+    d3.select("#waterfallBars").selectAll("rect")
+    	.data(rsData)
+    	.transition()
+    	.duration(1000)
+    	.attr("x",function(d,i){return xScale(i)})
+      .attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
+      .attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
+    	.attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)")
+
+    //Adjust CUSUM rect
+    d3.select("#cusumRect")
+      .transition()
+      .duration(1000)
+      .attr("y",  yScaleCUSUM(rsMax))
+      .attr("height", h - yScaleCUSUM(rsMax))
+
+
+    //First shuffle annotation
+    if (shuffleCount == 0) {
+
+      higherLower = rsMax > origHeight ? "higher" : "lower"
+
+      setTimeout(function(){
+        speech = d3.select("#mainView")
+          .append("div").attr("id","speechDiv").attr("class","speech-box sb1")
+          .style("left",w+20).style("top",d3.select("#cusumView").node().offsetTop + yScaleCUSUM(rsMax) + speechPointOffset)
+          .append("span")
+          .text("The 1st re-shuffle has a ")
+          speech.append("span").text(higherLower).attr("class","lower-higher")
+          speech.append("span").text(" score than our original trend.")
+          //speech.append("span").text(`(${Math.round(rsMax*10)/10})`).style("font-weight",900)
+          speech.append("br")
+          speech.append("br")
+          speech.append("span").text("Keep shuffling to build up a distribution of simulation scores.")
+
+          d3.select("#speechDiv")
+          .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+      },1000)
+    }
+
+    //Update CUSUM Height Bars
+    if (shuffleCount > 0) {
+      d3.select("#speechDiv").remove();
+
+      //If fewer than 100 bars, scale to data length, else limit to 50
+      xScaleHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
+
+      //If fewer than 100 values, take all values, else limit to last 50
+  	  last50 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
+
+      cusumHeightBars = d3.select("#cusumHeightBars")
+          .selectAll("rect")
+          .data(last50, key = d => d.key)
+
+  	  cusumHeightBars.enter()
+  		  .append("rect")
+  		  .attr("x",0)
+  		  .attr("y",  yScaleCUSUM(cusumHeights[shuffleCount-1]))
+  		  .attr("height", h - yScaleCUSUM(cusumHeights[shuffleCount-1]))
+  		  .attr("width",w)
+        .attr("class", cusumHeights[shuffleCount-1] > origHeight ? "over" : "under")
+  		  .attr("opacity",0.5)
+  			.merge(cusumHeightBars)
+  			.transition()
+  			.duration(500)
+  			.attr("x",function(d,i){return xScaleHeight(i)})
+  			.attr("width",xScaleHeight.bandwidth())
+        .attr("opacity",1)
+
+  	  cusumHeightBars.exit()
+  		 .transition()
+  		 .duration(1000)
+  		 .attr("transform","translate("+w+",0)")
+  		 .remove()
+
+       hitRate = 100 - (d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100)
+       hitRate = hitRate.toFixed(1)+"%"
+       hitRateNum.text(hitRate)
+
+       //Update histogram
+       let bins = histogram(cusumHeights)
+
+       histoX.domain([0, d3.max(bins,function(d){return d.length;})])
+
+       d3.select("#histoBars").selectAll("rect")
+         .data(bins)
+         .transition()
+         .duration(1000)
+           .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
+           .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
+           .attr("width", function(d){return histoX(d.length);})
+
+      simCountNum.text(shuffleCount)
+
+    }
+
+    //Show chart re-set button
+    if (shuffleCount == 3) {
+      buttonSize = 28
+
+      resetSvg = d3.select("#lineChartCont").append("svg").attr("id","resetButton")
+        .attr("viewBox","0 0 100 100")
+        .attr("width",buttonSize)
+        .attr("height",buttonSize)
+
+      resetCircle = resetSvg.append("path").attr("id","circle")
+        .attr("d",'M20 50, A30 30, 0, 0 0, 80 50, A30 30, 0, 0 0, 27 30')
+        .attr("stroke","#a9a9a9").attr("stroke-width","7px")
+        .attr("fill","none")
+
+      resetSvg.on("mouseover",function(){
+        d3.select("#circle")
+        lineTrans(resetCircle,700,0)
+      })
+      resetSvg.on("mouseout",function(){
+        d3.select("#circle")
+        lineTrans(resetCircle,0,0)
+      })
+
+
+      resetArrow = resetSvg.append("polygon").attr("id","arrow")
+        .attr("points","5,50 35,50 20,70")
+        .attr("fill","#a9a9a9")
+
+      showOrigTrend(dict,scales);
+
+
+    }
+
+    if (shuffleCount == 4){
+      //Add Simulation Score Label
+      d3.select("#cusumSvg")
+        .append("text").attr("id","sim-score-label").attr("class","lab-text")
+        .attr("x",w + (w/2))
+        .attr("y", h - 10)
+        .text("Simulation Scores")
+        .attr("text-anchor","middle")
+        .attr("opacity",0)
+        .transition().duration(1500)
+          .attr("opacity", 1)
+    }
+
+    //Show Confidence annotation
+    if (shuffleCount == 7) {
+      speech = d3.select("#mainView")
+        .append("div").attr("id","speechDiv").attr("class","speech-box sb2").style("width",200)
+        .style("left",d3.select("#cusumView").node().offsetLeft + w*2 - 200 - 20 + 10 - 5) //300 = SpeechBubble width; 20 = ArrowWidth; 10 = HistoMargin; 5 = Additional Spacing
+        .style("top",d3.select("#histoChart").node().offsetTop + speechPointOffset + 20) //20 = manual vertical positioning
+        .style("margin-left", 0)
+        .append("span").text("If the original trend ")
+      speech.append("span").attr("id","origLine").text("---")
+      speech.append("span").text(" has a higher score than nearly all random shuffles 🎲 (let's say at least ")
+      speech.append("span").text("95%").style("font-weight","bold")
+      speech.append("span").text(" of them), then we can be confident there's a change. Keep Shuffling!")
+      // speech.append("br")
+      // speech.append("br")
+      // speech.append("span").text("Keep Shuffling!")
+      // setTimeout(function(){
+      //   speech = d3.select("#mainView")
+      //     .append("div").attr("id","speechDiv2").attr("class","speech-box sb2").style("width",250)
+      //     .style("left",d3.select("#cusumView").node().offsetLeft + w*2 - 250 - 20 + 10 - 5)
+      //     .style("top",d3.select("#histoChart").node().offsetTop + h - 70) //100 = manual vertical positioning
+      //     .append("span").text("However, lots of simulations (at least 1000) are needed to estimate the full distribution of potential scores. Keep Shuffling!")
+      // },4000)
+
+      d3.select("#speechDiv")
+      .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+    }
+
+    //Show automateShuffle button
+    if (shuffleCount == 8) {
+      d3.select("#speechDiv2").remove();
+
+      Button(buttonG,"Auto-Shuffle",buttonWidth*1.3)
+
+      shuffleInterval(dict,scales);
+    }
+
+
+  //Push latest CUSUM heights to dataset and increment the shuffleCount
+   shuffleCount++
+
+   cusumHeights.push(rsMax)
+   cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
+
+    })
+  }
+
+shuffleInterval = function(dict,scales){
+
+    d3.select("#Auto-Shuffle").on("click", function(){
+      automate =! automate
+      shuffleSpeed = 90; sampleSize = 1000;
+
+
+      if (automate){
+        resetOrig();
+
+        myFunction = function() {
+          automateShuffle(dict,scales);
+          if (shuffleSpeed>20){shuffleSpeed--} else {shuffleSpeed};
+          if (shuffleCount == sampleSize) {
+            clearTimeout(inter);
+            cpResult(dict,scales);
+            automate =! automate;
+            d3.select("#Auto-Shuffle").select(".shuffle-text").text("Auto-Shuffle");
+          } else {inter = setTimeout(myFunction, shuffleSpeed)};
+        }
+        setTimeout(myFunction, shuffleSpeed);
+        d3.select("#Auto-Shuffle").select(".shuffle-text").text("Pause");
+
+      } else {
+        clearTimeout(inter);
+        d3.select("#Auto-Shuffle").select(".shuffle-text").text("Auto-Shuffle");
+      }
+    })
+
+  }
+
+automateShuffle = function(data,scales){
+
+    let {yScaleCUSUM} = scales;
+
+    let duration = shuffleSpeed
+
+    data2 = d3.shuffle(data)
+    generateRunningSum(data2)
+		shuffleCount ++
+		cusumHeights.push(rsMax)
+    cusumHeightsDict.push({"key":shuffleCount,"value":rsMax})
+
+    //If fewer than 50 values, take all values, else limit to last 50
+	  last50 = cusumHeightsDict.slice(cusumHeightsDict.length < 50 ? 0 : cusumHeightsDict.length-50 , cusumHeightsDict.length+1)
+    //If fewer than 50 bars, scale to data length, else limit to 50
+    xScaleHeight.domain(d3.range(cusumHeightsDict.length < 50 ? cusumHeightsDict.length : 50).reverse())
+
+
+      cusumHeightBars = d3.select("#cusumHeightBars")
+          .selectAll("rect")
+          .data(last50, key = d => d.key)
+
+      cusumHeightBars.enter()
+          .append("rect")
+		      .attr("x",w - xScaleHeight.bandwidth())
+          .attr("y", d => yScaleCUSUM(d.value))
+          .attr("height", d => h - yScaleCUSUM(d.value))
+          .attr("opacity", 0)
+          .attr("class", d => d.value > origHeight ? "over" : "under")
+          .merge(cusumHeightBars)
+          .transition()
+          .duration(duration)
+          .attr("x",function(d,i){return xScaleHeight(i)})
+          .attr("width",xScaleHeight.bandwidth())
+          .attr("opacity", 1)
+
+
+	   cusumHeightBars.exit()
+		 .transition()
+		 .duration(duration)
+		 .attr("transform","translate("+xScaleHeight.bandwidth()+",0)")
+		 .remove()
+
+      let bins = histogram(cusumHeights)
+
+      histoX.domain([0, d3.max(bins,function(d){return d.length;})])
+
+      d3.select("#histoBars").selectAll("rect")
+        .data(bins)
+        .transition()
+        .duration(duration)
+          .attr("transform", function(d){return "translate(0, "+yScaleCUSUM(d.x1)+" )" })
+          .attr("height",function(d){return yScaleCUSUM(d.x0) - yScaleCUSUM(d.x1); })
+          .attr("width", function(d){return histoX(d.length);})
+        //  .on("end",function(){automateShuffle(dict,scales)})
+
+      simCountNum.text(shuffleCount)
+      hitRate = 100 - (d3.sum(cusumHeights,d => d > origHeight ? 1 : 0) / shuffleCount * 100)
+      hitRate = hitRate.toFixed(1)+"%"
+      hitRateNum.text(hitRate)
+
+      //Fade out Simulation Score label
+      if (shuffleCount == 20) {
+        d3.select("#sim-score-label")
+        .transition().duration(2000)
+          .attr("opacity", 0)
+      }
+
+}
+//-----------------------------------
+
+
+// Characterisitng ChangePoint -----------
+showOrigTrend = function(data,scales){
+  let {xScale,yScale,yScaleCUSUM,yScaleCSMheight} = scales;
+
+  resetOrig = function() {
+      d3.select("#arrow").attr("opacity","0.3");
+      d3.select("#circle").attr("opacity","0.3");
+
+      data = dict.sort(function(a,b){return a.key - b.key})
+      generateRunningSum(data)
+
+      //Shuffle Line
+      valueline = d3.line()
+       .x(function(d,i){return xScale(i)})
+       .y(d => yScale(d.value))
+
+       d3.select("#RL").selectAll("path")
+        .datum(data)
+        .transition()
+        .duration(1000)
+        .attr("d", valueline)
+        .attr("class","line")
+
+      //Shuffle Bars
+      svg.selectAll("rect")
+      .data(data,d => d.key)
+        .transition()
+        .duration(1000)
+          .attr("x", function(d,i){return xScale(i)})
+
+      //Shuffle Waterfall
+      d3.select("#waterfallBars").selectAll("rect")
+        .data(rsData)
+        .transition()
+        .duration(1000)
+        .attr("x",function(d,i){return xScale(i)})
+        .attr("y", d => yScaleCUSUM(Math.max(d.end, d.start)))
+        .attr("height", d => h - yScaleCSMheight(Math.abs(d.end - d.start)))
+        .attr("fill", d => d.class === "positive"? "rgb(147,196,125)": "rgb(224,102,102)")
+
+      //Adjust CUSUM rect
+      d3.select("#cusumRect")
+        .transition()
+        .duration(1000)
+        .attr("y",  yScaleCUSUM(rsMax))
+        .attr("height", h - yScaleCUSUM(rsMax))
+    }
+
+  d3.select("#resetButton").on("click",resetOrig);
+
+}
+
+cpResult = function(dict,scales){
+  trackedStep = 4;
+  nextStep();
+
+  cpExists = cpResultText = parseInt(hitRateNum.text()) >= 95
+  cpResultText = cpExists ? "Hurrah! It looks like we've got a change ✔️": "It looks like there's no change here 🤷.‍"
+
+  speech = d3.select("#mainView")
+    .append("div").attr("id","speechDiv").attr("class","speech-box sb2").style("width",200)
+    .style("left",d3.select("#cusumView").node().offsetLeft + w*2 - 200 - 20 + 10 - 5) //300 = SpeechBubble width; 20 = ArrowWidth; 10 = HistoMargin; 5 = Additional Spacing
+    .style("top",d3.select("#histoChart").node().offsetTop + speechPointOffset + 20) //20 = manual vertical positioning
+    .style("margin-left", 0)
+    .append("span").text(cpResultText)
+
+  d3.select("#speechDiv")
+  .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+
+
+  tryAgain = function(buttonName){
+    d3.select(".ann4").text("");
+    // PageNum.select("text").text("6")
+
+    d3.select(".ann4").append("tspan").attr("id","endText").text("Thanks for following along.")
+      .attr("opacity",0)
+      .transition().duration(1000)
+        .attr("opacity",1)
+    d3.select(".ann4").append("tspan").text("with a different trend?")
+      .attr("x",80)
+      .attr("dy","1.5em")
+      .attr("opacity",0)
+      .transition().duration(2000).delay(1500)
+        .attr("opacity",1)
+
+    setTimeout(function(){
+        Button(annCont,`${buttonName}`,80,25);
+        ShuffleButton.attr("id","Go-Again");
+        ShuffleButton.select("text").style("opacity",0.8);
+        d3.select("#Go-Again").on("click",function(){
+          location.reload();
+        })
+      },1500)
+
+  }
+
+  if (cpExists){
+    ready();
+    d3.select("#Auto-Shuffle").attr("class","noClick").transition().duration(1000).style("opacity",0.6)
+    d3.select("#Shuffle").attr("class","noClick").transition().duration(1000).style("opacity",0.6)
+  } else {
+    setTimeout(function(){
+      d3.select("#buttonG").remove();
+      tryAgain("Try Again");
+      PageNum.select("text").text("5");
+      d3.select("#endText").text("You didn't get to see the exciting bit.");
+    },1500)
+
+  }
+
+
+
+}
+
+cpLine = function(data,scales){
+  let {xScale,yScale,yScaleCUSUM} = scales;
+
+  line.attr("opacity",0.35);
+
+  //Calculate posiiton of change-point
+  cpIndex = xScale(cusumPeak[0].key)+xScale.bandwidth()
+
+  //Fade out deltas
+  svg.selectAll("rect")
+    // .transition().duration(1500)
+      .attr("opacity", 0)
+  d3.select("#meanLine")
+    // .transition().duration(1500)
+      .attr("stroke-opacity", 0)
+
+
+  // function drawSegmentMeans(){
+    //Calculate Segment Means
+    segment1 = []; segment2 =[];
+    data.map(function(d){if (d.key <= cusumPeak[0].key){segment1.push(d.value)} else {segment2.push(d.value)}})
+    segmentMeans = [d3.mean(segment1),d3.mean(segment2)]
+
+    cpCharDetails = function(){
+        d3.selectAll(".segment-line").each(function(d,i){
+        svg.append("text").attr("id","segment-labels")
+        .attr("class","segment-lab")
+        .attr("x",this.getBBox().x + this.getBBox().width/2)
+        .attr("y",this.getBBox().y -5)
+        .attr("text-anchor","middle")
+        .text(`Segment ${i+1} mean = `) //X̄
+          .append("tspan").text(Math.round((i == 0 ? segmentMeans[0] : segmentMeans[1])*10)/10).attr("font-weight","bold")
+        })
+
+      //Draw Segment Change Line
+       d3.select("#cpChar")
+         .append("line").attr("stroke","black")
+         .attr("x1",cpIndex)
+         .attr("x2",cpIndex)
+         .attr("y1",yScale(segmentMeans[0]))
+         .attr("y2",yScale(segmentMeans[0]))
+         .attr("stroke-width",1)
+         .transition().duration(1500).delay(2500)
+         .attr("y2",yScale(segmentMeans[1]))
+         .on("end",cpMagCallout)
+
+       function cpMagCallout(){
+         cpIndex = xScale(cusumPeak[0].key) + xScale.bandwidth()
+         midPoint = yScale(segmentMeans[0] - (segmentMeans[0]-segmentMeans[1])/2)
+
+         let rScale = d3.scaleLinear()
+           .domain([0,segmentMeans[0]-segmentMeans[1]])
+           .range([0,(yScale(segmentMeans[1])-yScale(segmentMeans[0]))/2]);
+         //cpRadius = rScale((segmentMeans[0]-segmentMeans[1])*1.3)
+         cpRadius = rScale((segmentMeans[0]-segmentMeans[1]))
+
+         console.log(midPoint)
+
+         dy = -50;
+         dx = 30
+
+         //Features of the annotation
+         const annotations = [{
+             note: {label: "", wrap:150},
+             x: cpIndex, y: midPoint,
+             dy: dy, dx: dx,
+             subject: {radius: cpRadius},
+             color: "black"
+         }]
+
+         //Add annotation to the Chart
+         const makeAnnotations = d3.annotation()
+           //.editMode(true)
+           .type(d3.annotationCalloutCircle)
+           .annotations(annotations)
+         svg.append("g").attr("id","cpCallout")
+           .call(makeAnnotations);
+
+
+         speech = d3.select("#mainView")
+           .append("div").attr("id","speechDiv").attr("class","speech-box-white")
+           .style("left",d3.select("#lineChartCont").node().offsetLeft + cpIndex + dx - 80)
+           .style("top",d3.select("#lineChartCont").node().offsetTop + midPoint + dy + 3) //+3, so the box overaps the line
+           .append("span").text("The magnitude of change is ")
+           speech.append("span").text(Math.round((segmentMeans[0]-segmentMeans[1])*10)/10).style("font-weight","bold")
+           speech.append("span").text("...or a drop 📉 of ")
+           speech.append("span").text(`${Math.round(((segmentMeans[0]-segmentMeans[1])/segmentMeans[0])*100)}%`).style("font-weight","bold")
+
+         // d3.select("#speechDiv")
+         // .style("margin-top",-d3.select("#speechDiv").node().offsetHeight/2)
+       };
+
+    }
+
+
+
+    //Draw Segment Means
+    svg.append("g").attr("id","cpChar")
+      .selectAll("line")
+      .data(segmentMeans)
+      .enter()
+      .append("line").attr("class","segment-line")
+      .attr("x1",(d,i) => i==0 ? 0 : cpIndex)
+      .attr("x2",(d,i) => i==0 ? 0 : cpIndex)
+      .attr("y1",d=>yScale(d))
+      .attr("y2",d=>yScale(d))
+      .attr("stroke","black")
+      .attr("stroke-width",1)
+      .transition().duration(1000).delay((d,i) => 3500 + (i*1000))
+      // .delay((d,i) => i*1000)
+      .attr("x2",(d,i) => i==0 ? cpIndex : w)
+      .end().then(function(){
+        cpCharDetails();
+        setTimeout(function(){
+          tryAgain("Go Again");
+
+          d3.select(".ann4")
+            .append("tspan")
+            .text("Credits: @krstoffr | variation.com")
+            .attr("dy","3.8em").attr("x",0)
+            .style("font-size","18")
+            .attr("opacity",0)
+            .transition().duration(1000).delay(3500)
+              .attr("opacity",1)
+        },7000)
+
+      })
+  // }
+
+  function drawCPLine(container,color,delay){
+   container
+   .append("line")
+   .attr("x1",xScale(cusumPeak[0].key) + xScale.bandwidth())
+   .attr("x2",xScale(cusumPeak[0].key) + xScale.bandwidth())
+   .attr("y1",h)
+   .attr("y2",h)
+   .attr("stroke-width",1)
+   .attr("stroke",color)
+   .attr("stroke-dasharray",[5,5])
+   .transition().duration(1500).delay(delay).ease(d3.easeLinear)
+   .attr("y2",0)
+  }
+
+  //Draw CP line through both containers
+  drawCPLine(d3.select("#cusumSvg"),"white",0)
+  drawCPLine(baseSvg,"grey",1500)
+
+
+
+
+  //Draw CP line through both containers
+  // drawCPLine(d3.select("#cusumSvg"),"white",0)
+  // drawCPLine(baseSvg,"grey",1000)
+
+  data = dict.sort(function(a,b){return a.key - b.key})
+
+}
+
+
+
+
+
+
+//---------------------------------------
+
+
+
+showData = function(){
+  dataGeneration();
+  let scales = getScales(dict);
+  stepTracker();
+  drawLine(combinedArray,scales);
+  cusumHeights = [];
+  cusumHeightsDict = [];
+  drawHisto(scales);
+}
+showData();
+
+
+</script>
+
+</html>
